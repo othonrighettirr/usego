@@ -115,6 +115,17 @@ interface ChatwootSettings {
   autoCreate: boolean;
 }
 
+interface WhaticketSettings {
+  enabled: boolean;
+  url: string;
+  token: string;
+  queueId: string;
+  importContacts: boolean;
+  importMessages: boolean;
+  closedTickets: boolean;
+  autoCreate: boolean;
+}
+
 const AVAILABLE_EVENTS = [
   'APPLICATION_STARTUP', 'CALL', 'CHATS_DELETE', 'CHATS_SET', 'CHATS_UPDATE', 'CHATS_UPSERT',
   'CONNECTION_UPDATE', 'CONTACTS_SET', 'CONTACTS_UPDATE', 'CONTACTS_UPSERT',
@@ -178,11 +189,11 @@ const EventsSelector = ({ events, selectedEvents, onChange }: { events: string[]
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-slate-300">Events</span>
+        <span className="text-sm font-medium text-slate-300">Eventos</span>
         <div className="flex gap-2">
-          <button onClick={() => onChange([...events])} className="text-xs text-primary hover:text-primary-hover transition-colors">Mark All</button>
+          <button onClick={() => onChange([...events])} className="text-xs text-primary hover:text-primary-hover transition-colors">Marcar Todos</button>
           <span className="text-slate-600">|</span>
-          <button onClick={() => onChange([])} className="text-xs text-slate-400 hover:text-white transition-colors">Unmark All</button>
+          <button onClick={() => onChange([])} className="text-xs text-slate-400 hover:text-white transition-colors">Desmarcar Todos</button>
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
@@ -211,16 +222,17 @@ const menuItems = [
     { id: 'behavior', label: 'Comportamento', icon: 'tune' },
     { id: 'proxy', label: 'Proxy', icon: 'vpn_key' },
   ]},
-  { id: 'events', label: 'Events', icon: 'bolt', children: [
+  { id: 'events', label: 'Eventos', icon: 'bolt', children: [
     { id: 'webhook', label: 'Webhook', icon: 'webhook' },
     { id: 'websocket', label: 'WebSocket', icon: 'sync_alt' },
     { id: 'rabbitmq', label: 'RabbitMQ', icon: 'hub' },
     { id: 'sqs', label: 'SQS', icon: 'cloud_queue' },
   ]},
-  { id: 'integrations', label: 'Integrations', icon: 'extension', children: [
+  { id: 'integrations', label: 'Integração', icon: 'extension', children: [
     { id: 'n8n', label: 'N8N', icon: 'account_tree' },
     { id: 'typebot', label: 'Typebot', icon: 'smart_toy' },
     { id: 'chatwoot', label: 'Chatwoot', icon: 'support_agent' },
+    { id: 'whaticket', label: 'Whaticket', icon: 'confirmation_number' },
   ]},
 ];
 
@@ -278,6 +290,11 @@ export default function InstanceSettingsPage() {
     importContacts: false, importMessages: false, daysLimitImport: 3, ignoreJids: '', autoCreate: true,
   });
 
+  const [whaticketSettings, setWhaticketSettings] = useState<WhaticketSettings>({
+    enabled: false, url: '', token: '', queueId: '',
+    importContacts: false, importMessages: false, closedTickets: false, autoCreate: true,
+  });
+
   useEffect(() => {
     if (!instanceId) return;
     loadData();
@@ -301,6 +318,7 @@ export default function InstanceSettingsPage() {
       if (s.typebot) setTypebotSettings(prev => ({ ...prev, ...s.typebot }));
       if (s.n8n) setN8nSettings(prev => ({ ...prev, ...s.n8n }));
       if (s.chatwoot) setChatwootSettings(prev => ({ ...prev, ...s.chatwoot }));
+      if (s.whaticket) setWhaticketSettings(prev => ({ ...prev, ...s.whaticket }));
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -525,7 +543,7 @@ export default function InstanceSettingsPage() {
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
-                  <div><span className="text-white font-semibold">Enabled</span><p className="text-xs text-slate-500">Enable or disable the webhook</p></div>
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar o webhook</p></div>
                   <Toggle checked={webhookSettings.enabled} onChange={(v) => setWebhookSettings(prev => ({ ...prev, enabled: v }))} />
                 </div>
                 <div className={`space-y-4 ${!webhookSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -556,7 +574,7 @@ export default function InstanceSettingsPage() {
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
-                  <div><span className="text-white font-semibold">Enabled</span><p className="text-xs text-slate-500">Enable or disable the websocket</p></div>
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar o websocket</p></div>
                   <Toggle checked={websocketSettings.enabled} onChange={(v) => setWebsocketSettings(prev => ({ ...prev, enabled: v }))} />
                 </div>
                 <div className={`${!websocketSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -586,7 +604,7 @@ export default function InstanceSettingsPage() {
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
-                  <div><span className="text-white font-semibold">Enabled</span><p className="text-xs text-slate-500">Enable or disable RabbitMQ</p></div>
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar RabbitMQ</p></div>
                   <Toggle checked={rabbitmqSettings.enabled} onChange={(v) => setRabbitmqSettings(prev => ({ ...prev, enabled: v }))} />
                 </div>
                 <div className={`space-y-4 ${!rabbitmqSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -618,7 +636,7 @@ export default function InstanceSettingsPage() {
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
-                  <div><span className="text-white font-semibold">Enabled</span><p className="text-xs text-slate-500">Enable or disable SQS</p></div>
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar SQS</p></div>
                   <Toggle checked={sqsSettings.enabled} onChange={(v) => setSqsSettings(prev => ({ ...prev, enabled: v }))} />
                 </div>
                 <div className={`space-y-4 ${!sqsSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -656,7 +674,7 @@ export default function InstanceSettingsPage() {
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
-                  <div><span className="text-white font-semibold">Enabled</span><p className="text-xs text-slate-500">Enable or disable n8n integration</p></div>
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar integração N8N</p></div>
                   <Toggle checked={n8nSettings.enabled} onChange={(v) => setN8nSettings(prev => ({ ...prev, enabled: v }))} />
                 </div>
                 <div className={`space-y-4 ${!n8nSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -705,7 +723,7 @@ export default function InstanceSettingsPage() {
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
-                  <div><span className="text-white font-semibold">Enabled</span><p className="text-xs text-slate-500">Enable or disable Typebot</p></div>
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar Typebot</p></div>
                   <Toggle checked={typebotSettings.enabled} onChange={(v) => setTypebotSettings(prev => ({ ...prev, enabled: v }))} />
                 </div>
                 <div className={`space-y-4 ${!typebotSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -752,7 +770,7 @@ export default function InstanceSettingsPage() {
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
-                  <div><span className="text-white font-semibold">Enabled</span><p className="text-xs text-slate-500">Enable or disable Chatwoot</p></div>
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar Chatwoot</p></div>
                   <Toggle checked={chatwootSettings.enabled} onChange={(v) => setChatwootSettings(prev => ({ ...prev, enabled: v }))} />
                 </div>
                 <div className={`space-y-4 ${!chatwootSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -776,6 +794,60 @@ export default function InstanceSettingsPage() {
                     <div className="p-3 bg-surface-light rounded-lg flex items-center justify-between"><span className="text-xs text-slate-300">Import Contacts</span><Toggle checked={chatwootSettings.importContacts} onChange={(v) => setChatwootSettings(prev => ({ ...prev, importContacts: v }))} disabled={!chatwootSettings.enabled} /></div>
                     <div className="p-3 bg-surface-light rounded-lg flex items-center justify-between"><span className="text-xs text-slate-300">Import Messages</span><Toggle checked={chatwootSettings.importMessages} onChange={(v) => setChatwootSettings(prev => ({ ...prev, importMessages: v }))} disabled={!chatwootSettings.enabled} /></div>
                     <div className="p-3 bg-surface-light rounded-lg flex items-center justify-between"><span className="text-xs text-slate-300">Auto Create</span><Toggle checked={chatwootSettings.autoCreate} onChange={(v) => setChatwootSettings(prev => ({ ...prev, autoCreate: v }))} disabled={!chatwootSettings.enabled} /></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Whaticket Section */}
+          {activeSection === 'whaticket' && (
+            <div className="rounded-2xl border border-border-dark bg-surface-dark">
+              <div className="p-6 border-b border-border-dark flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-teal-500/10 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-teal-500 text-2xl">confirmation_number</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Whaticket</h3>
+                    <p className="text-slate-400 text-sm">Integre com o sistema de tickets Whaticket</p>
+                  </div>
+                </div>
+                <button onClick={() => saveSection('whaticket', { whaticket: whaticketSettings })} disabled={saving === 'whaticket'} className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-hover text-black font-bold rounded-xl transition-all disabled:opacity-50">
+                  <span className="material-symbols-outlined text-[20px]">{saving === 'whaticket' ? 'sync' : 'save'}</span>
+                  {saving === 'whaticket' ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-dark">
+                  <div><span className="text-white font-semibold">Ativar</span><p className="text-xs text-slate-500">Ativar ou desativar integração com Whaticket</p></div>
+                  <Toggle checked={whaticketSettings.enabled} onChange={(v) => setWhaticketSettings(prev => ({ ...prev, enabled: v }))} />
+                </div>
+                <div className={`space-y-4 ${!whaticketSettings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <span className="material-symbols-outlined text-blue-400 mt-0.5">info</span>
+                      <div className="text-sm text-slate-300">
+                        <p className="font-medium text-blue-400 mb-1">Como configurar:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-400">
+                          <li>Acesse seu painel Whaticket e vá em Configurações → API</li>
+                          <li>Copie a URL base do seu servidor (ex: https://seudominio.com)</li>
+                          <li>Gere um token de API e cole abaixo</li>
+                          <li>Informe o ID da fila para onde os tickets serão direcionados</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                  <Input label="URL do Whaticket" value={whaticketSettings.url} onChange={(v: string) => setWhaticketSettings(prev => ({ ...prev, url: v }))} placeholder="https://seudominio.com ou https://api.whaticket.com" required disabled={!whaticketSettings.enabled} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input label="Token de API" type="password" value={whaticketSettings.token} onChange={(v: string) => setWhaticketSettings(prev => ({ ...prev, token: v }))} placeholder="Seu token de acesso" required disabled={!whaticketSettings.enabled} />
+                    <Input label="ID da Fila" value={whaticketSettings.queueId} onChange={(v: string) => setWhaticketSettings(prev => ({ ...prev, queueId: v }))} placeholder="ID da fila de atendimento" disabled={!whaticketSettings.enabled} />
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3 bg-surface-light rounded-lg flex items-center justify-between"><span className="text-xs text-slate-300">Importar Contatos</span><Toggle checked={whaticketSettings.importContacts} onChange={(v) => setWhaticketSettings(prev => ({ ...prev, importContacts: v }))} disabled={!whaticketSettings.enabled} /></div>
+                    <div className="p-3 bg-surface-light rounded-lg flex items-center justify-between"><span className="text-xs text-slate-300">Importar Mensagens</span><Toggle checked={whaticketSettings.importMessages} onChange={(v) => setWhaticketSettings(prev => ({ ...prev, importMessages: v }))} disabled={!whaticketSettings.enabled} /></div>
+                    <div className="p-3 bg-surface-light rounded-lg flex items-center justify-between"><span className="text-xs text-slate-300">Tickets Fechados</span><Toggle checked={whaticketSettings.closedTickets} onChange={(v) => setWhaticketSettings(prev => ({ ...prev, closedTickets: v }))} disabled={!whaticketSettings.enabled} /></div>
+                    <div className="p-3 bg-surface-light rounded-lg flex items-center justify-between"><span className="text-xs text-slate-300">Auto Criar Ticket</span><Toggle checked={whaticketSettings.autoCreate} onChange={(v) => setWhaticketSettings(prev => ({ ...prev, autoCreate: v }))} disabled={!whaticketSettings.enabled} /></div>
                   </div>
                 </div>
               </div>

@@ -810,17 +810,19 @@ END:VCARD`;
           const metadata = await socket.newsletterMetadata('jid', n.id);
           this.logger.debug(`Newsletter metadata for ${n.id}: ${JSON.stringify(metadata)}`);
           if (metadata) {
-            // O metadata pode ter diferentes estruturas dependendo da versão do Baileys
-            name = metadata.name || metadata.subject || metadata.title || name;
-            description = metadata.description || metadata.desc || description;
-            picture = metadata.picture?.url || metadata.pictureUrl || metadata.picture || picture;
+            // Usar método de extração de nome
+            const extractedName = this.extractNewsletterName(metadata);
+            if (extractedName) name = extractedName;
+            
+            description = metadata.description || metadata.thread_metadata?.description?.text || description;
+            picture = metadata.picture?.url || metadata.picture?.directPath || picture;
             
             // Verificar role/owner
             if (metadata.role) {
               role = metadata.role;
               isOwner = metadata.role === 'OWNER' || metadata.role === 'ADMIN';
             }
-            if (metadata.state === 'ACTIVE' && metadata.viewer_metadata?.role) {
+            if (metadata.viewer_metadata?.role) {
               role = metadata.viewer_metadata.role;
               isOwner = role === 'OWNER' || role === 'ADMIN';
             }
@@ -893,6 +895,7 @@ END:VCARD`;
 
   /**
    * Criar uma nova newsletter/canal
+   * Salva o canal no banco de dados para poder listar depois
    */
   async createNewsletter(instanceId: string, name: string, description?: string) {
     const socket = this.baileys.getSocket(instanceId);
@@ -902,11 +905,22 @@ END:VCARD`;
       const result = await socket.newsletterCreate(name, description);
       
       // O Baileys pode retornar diferentes estruturas ou null
-      // Mesmo se retornar null, a newsletter pode ter sido criada
-      const newsletterId = result?.id || result?.jid || null;
+      const newsletterId = result?.id || null;
       
       if (newsletterId) {
         this.logger.log(`Newsletter criada com ID: ${newsletterId}`);
+        
+        // Salvar no banco de dados para poder listar depois
+        try {
+          await this.prisma.newsletter.upsert({
+            where: { instanceId_jid: { instanceId, jid: newsletterId } },
+            update: { name, description, isOwner: true, updatedAt: new Date() },
+            create: { instanceId, jid: newsletterId, name, description, isOwner: true }
+          });
+          this.logger.log(`Newsletter ${newsletterId} salva no banco de dados`);
+        } catch (dbErr: any) {
+          this.logger.warn(`Erro ao salvar newsletter no banco: ${dbErr.message}`);
+        }
       } else {
         this.logger.log(`Newsletter "${name}" criada (ID não retornado pelo Baileys)`);
       }
@@ -915,10 +929,10 @@ END:VCARD`;
         success: true, 
         newsletter: result || { name, description },
         id: newsletterId,
-        message: 'Newsletter criada com sucesso! Verifique no WhatsApp.',
+        message: 'Newsletter criada com sucesso!',
         nota: newsletterId 
           ? `ID do canal: ${newsletterId}` 
-          : 'O canal foi criado mas o ID não foi retornado. Verifique no WhatsApp e use GET /api/newsletter para listar.'
+          : 'O canal foi criado mas o ID não foi retornado. Verifique no WhatsApp.'
       };
     } catch (error: any) {
       // Verificar se é erro de parsing mas a operação pode ter funcionado
@@ -1259,115 +1273,84 @@ END:VCARD`;
   }
 
   /**
+   * Extrai o nome do canal de diferentes estruturas de metadata do Baileys
+   */
+  private extractNewsletterName(metadata: any): string | null {
+    if (!metadata) return null;
+    
+    // Estrutura principal: metadata.name
+    if (metadata.name && typeof metadata.name === 'string') {
+      return metadata.name;
+    }
+    
+    // Estrutura alternativa: metadata.thread_metadata.name.text
+    if (metadata.thread_metadata?.name?.text) {
+      return metadata.thread_metadata.name.text;
+    }
+    
+    // Estrutura alternativa: metadata.thread_metadata.name (string direta)
+    if (metadata.thread_metadata?.name && typeof metadata.thread_metadata.name === 'string') {
+      return metadata.thread_metadata.name;
+    }
+    
+    // Outras possibilidades
+    if (metadata.subject) return metadata.subject;
+    if (metadata.title) return metadata.title;
+    
+    return null;
+  }
+
+  /**
    * Listar canais/newsletters seguidos e próprios
-   * Usa newsletterSubscribedList para buscar TODOS os canais diretamente do WhatsApp
+   * Busca do banco de dados (canais criados) + store interno + metadados via API
    */
   async getFollowedNewsletters(instanceId: string) {
     const socket = this.baileys.getSocket(instanceId);
     if (!socket) throw new BadRequestException('Instância não conectada');
 
     const newsletterList: any[] = [];
+    const processedIds = new Set<string>();
     
-    // MÉTODO 1: Usar newsletterSubscribedList do Baileys (busca direto do WhatsApp)
+    // MÉTODO 1: Buscar canais salvos no banco de dados (canais criados pela API)
     try {
-      this.logger.log('[getFollowedNewsletters] Buscando canais via newsletterSubscribedList...');
-      const subscribedList = await socket.newsletterSubscribedList();
+      const dbNewsletters = await this.prisma.newsletter.findMany({
+        where: { instanceId }
+      });
       
-      if (subscribedList && Array.isArray(subscribedList)) {
-        this.logger.log(`[getFollowedNewsletters] Encontrados ${subscribedList.length} canais via API`);
+      this.logger.log(`[getFollowedNewsletters] Newsletters no banco: ${dbNewsletters.length}`);
+      
+      for (const dbNl of dbNewsletters) {
+        processedIds.add(dbNl.jid);
         
-        for (const channel of subscribedList) {
-          // Log para debug
-          this.logger.log(`[Canal] Raw: ${JSON.stringify(channel).substring(0, 300)}`);
-          
-          const id = channel.id || channel.jid;
-          const name = channel.name || channel.subject || channel.title || 'Canal sem nome';
-          const description = channel.description || channel.desc || '';
-          const picture = channel.picture?.url || channel.pictureUrl || channel.picture || null;
-          const subscribers = channel.subscribers || channel.subscriber_count || 0;
-          const role = channel.role || channel.viewer_metadata?.role || 'SUBSCRIBER';
-          const isOwner = role === 'OWNER' || role === 'ADMIN';
-          
-          newsletterList.push({
-            id,
-            name,
-            description,
-            subscribers,
-            picture,
-            isOwner,
-            role,
-          });
-        }
-      }
-    } catch (err: any) {
-      this.logger.warn(`[getFollowedNewsletters] Erro ao buscar via newsletterSubscribedList: ${err.message}`);
-    }
-    
-    // MÉTODO 2: Se não encontrou nada, tentar buscar do store interno
-    if (newsletterList.length === 0) {
-      this.logger.log('[getFollowedNewsletters] Tentando buscar do store interno...');
-      
-      // Buscar do store do BaileysService
-      let newsletters = this.baileys.getNewsletters(instanceId);
-      
-      // Tentar também do store de chats
-      if (newsletters.length === 0) {
-        try {
-          const store = (socket as any).store;
-          if (store?.chats) {
-            const allChats = typeof store.chats.all === 'function' 
-              ? store.chats.all() 
-              : Array.from(store.chats.values?.() || []);
-            
-            for (const chat of allChats) {
-              if (chat.id?.endsWith('@newsletter')) {
-                newsletters.push({
-                  id: chat.id,
-                  name: chat.name || chat.subject || null,
-                  description: chat.description || '',
-                  picture: chat.picture || null,
-                });
-              }
-            }
-          }
-        } catch (e) {
-          this.logger.warn(`Não foi possível acessar store de chats: ${e.message}`);
-        }
-      }
-      
-      // Para cada newsletter do store, buscar metadados
-      for (const n of newsletters) {
-        let name = n.name || null;
-        let description = n.description || '';
-        let picture = n.picture || null;
+        // Buscar metadados atualizados via API
+        let name = dbNl.name || null;
+        let description = dbNl.description || '';
+        let picture = null;
         let subscribers = 0;
-        let isOwner = false;
-        let role = 'SUBSCRIBER';
+        let isOwner = dbNl.isOwner;
+        let role = isOwner ? 'OWNER' : 'SUBSCRIBER';
         
-        // Buscar metadados para obter o nome correto
         try {
-          const metadata = await socket.newsletterMetadata('jid', n.id);
+          const metadata = await socket.newsletterMetadata('jid', dbNl.jid);
+          this.logger.log(`[DB Newsletter ${dbNl.jid}] Raw metadata: ${JSON.stringify(metadata)}`);
+          
           if (metadata) {
-            this.logger.log(`[Newsletter ${n.id}] Metadata: ${JSON.stringify(metadata).substring(0, 300)}`);
-            name = metadata.name || metadata.subject || metadata.title || name;
-            description = metadata.description || metadata.desc || description;
-            picture = metadata.picture?.url || metadata.pictureUrl || metadata.picture || picture;
+            const extractedName = this.extractNewsletterName(metadata);
+            if (extractedName) name = extractedName;
             
-            if (metadata.role) {
-              role = metadata.role;
-              isOwner = role === 'OWNER' || role === 'ADMIN';
+            description = metadata.description || metadata.thread_metadata?.description?.text || description;
+            subscribers = metadata.subscribers || 0;
+            
+            if (metadata.picture) {
+              picture = metadata.picture.url || metadata.picture.directPath || null;
             }
           }
-        } catch {}
-        
-        // Buscar inscritos
-        try {
-          const result = await socket.newsletterSubscribers(n.id);
-          subscribers = result?.subscribers || 0;
-        } catch {}
+        } catch (err: any) {
+          this.logger.warn(`[Newsletter ${dbNl.jid}] Erro ao buscar metadata: ${err.message}`);
+        }
         
         newsletterList.push({
-          id: n.id,
+          id: dbNl.jid,
           name: name || 'Canal sem nome',
           description,
           subscribers,
@@ -1376,6 +1359,78 @@ END:VCARD`;
           role,
         });
       }
+    } catch (dbErr: any) {
+      this.logger.warn(`Erro ao buscar newsletters do banco: ${dbErr.message}`);
+    }
+    
+    // MÉTODO 2: Buscar do store do BaileysService
+    let newsletters = this.baileys.getNewsletters(instanceId);
+    this.logger.log(`[getFollowedNewsletters] Newsletters no store BaileysService: ${newsletters.length}`);
+    
+    // MÉTODO 3: Buscar do store de chats do socket
+    try {
+      const store = (socket as any).store;
+      if (store?.chats) {
+        const allChats = typeof store.chats.all === 'function' 
+          ? store.chats.all() 
+          : Array.from(store.chats.values?.() || []);
+        
+        for (const chat of allChats) {
+          if (chat.id?.endsWith('@newsletter') && !processedIds.has(chat.id)) {
+            newsletters.push({
+              id: chat.id,
+              name: chat.name || chat.subject || null,
+              description: chat.description || '',
+              picture: chat.picture || null,
+            });
+          }
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(`Não foi possível acessar store de chats: ${e.message}`);
+    }
+    
+    // Processar newsletters do store que não estão no banco
+    for (const n of newsletters) {
+      if (processedIds.has(n.id)) continue;
+      processedIds.add(n.id);
+      
+      let name = n.name || null;
+      let description = n.description || '';
+      let picture = n.picture || null;
+      let subscribers = 0;
+      let isOwner = false;
+      let role = 'SUBSCRIBER';
+      
+      // Buscar metadados via API
+      try {
+        const metadata = await socket.newsletterMetadata('jid', n.id);
+        this.logger.log(`[Store Newsletter ${n.id}] Raw metadata: ${JSON.stringify(metadata)}`);
+        
+        if (metadata) {
+          const extractedName = this.extractNewsletterName(metadata);
+          if (extractedName) name = extractedName;
+          
+          description = metadata.description || metadata.thread_metadata?.description?.text || description;
+          subscribers = metadata.subscribers || 0;
+          
+          if (metadata.picture) {
+            picture = metadata.picture.url || metadata.picture.directPath || null;
+          }
+        }
+      } catch (err: any) {
+        this.logger.debug(`[Newsletter ${n.id}] Erro ao buscar metadata: ${err.message}`);
+      }
+      
+      newsletterList.push({
+        id: n.id,
+        name: name || 'Canal sem nome',
+        description,
+        subscribers,
+        picture,
+        isOwner,
+        role,
+      });
     }
 
     return { 
@@ -1383,6 +1438,10 @@ END:VCARD`;
       newsletters: newsletterList,
       total: newsletterList.length,
       owned: newsletterList.filter(n => n.isOwner).length,
+      info: newsletterList.length === 0 ? {
+        message: 'Nenhum canal encontrado.',
+        dica: 'Crie um canal usando POST /api/newsletter/create ou interaja com canais no WhatsApp.',
+      } : undefined
     };
   }
 

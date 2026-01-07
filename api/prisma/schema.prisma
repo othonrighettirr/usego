@@ -31,6 +31,22 @@ model Instance {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages     Message[]
   sharedTokens SharedToken[]
+  newsletters  Newsletter[]
+}
+
+model Newsletter {
+  id          String   @id @default(uuid())
+  instanceId  String
+  jid         String
+  name        String?
+  description String?
+  isOwner     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  instance Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  
+  @@unique([instanceId, jid])
 }
 
 model Message {
