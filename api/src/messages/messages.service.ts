@@ -1308,13 +1308,42 @@ END:VCARD`;
         // SEMPRE buscar metadados para obter o nome correto
         try {
           const metadata = await socket.newsletterMetadata('jid', n.id);
-          this.logger.debug(`[getFollowedNewsletters] Metadata para ${n.id}: ${JSON.stringify(metadata)}`);
+          
+          // Log completo para debug
+          this.logger.log(`[Newsletter ${n.id}] Metadata keys: ${metadata ? Object.keys(metadata).join(', ') : 'null'}`);
+          if (metadata) {
+            this.logger.log(`[Newsletter ${n.id}] Raw metadata: ${JSON.stringify(metadata).substring(0, 500)}`);
+          }
           
           if (metadata) {
-            // Tentar várias propriedades para o nome
-            name = metadata.name || metadata.subject || metadata.title || name;
-            description = metadata.description || metadata.desc || description;
-            picture = metadata.picture?.url || metadata.pictureUrl || metadata.picture || picture;
+            // Tentar TODAS as possíveis propriedades para o nome
+            // Baileys pode retornar em diferentes formatos dependendo da versão
+            const possibleNames = [
+              metadata.name,
+              metadata.subject,
+              metadata.title,
+              metadata.thread_metadata?.name?.text,
+              metadata.thread_metadata?.name,
+              (metadata as any).newsletter_name,
+              (metadata as any).channelName,
+              (metadata as any).displayName,
+            ];
+            
+            for (const possibleName of possibleNames) {
+              if (possibleName && typeof possibleName === 'string' && possibleName.trim()) {
+                name = possibleName.trim();
+                this.logger.log(`[Newsletter ${n.id}] Nome encontrado: "${name}"`);
+                break;
+              }
+            }
+            
+            // Descrição
+            description = metadata.description || metadata.desc || 
+                         metadata.thread_metadata?.description?.text || description;
+            
+            // Imagem
+            picture = metadata.picture?.url || metadata.pictureUrl || 
+                     metadata.picture || metadata.preview || picture;
             
             // Verificar se é dono (owner)
             if (metadata.role) {
@@ -1337,8 +1366,8 @@ END:VCARD`;
         } catch {}
         
         // Se ainda não tem nome, usar "Canal" como fallback
-        if (!name || name === 'Canal sem nome') {
-          name = 'Canal';
+        if (!name || name === 'Canal sem nome' || name === 'Canal') {
+          name = 'Canal sem nome';
         }
         
         return {
