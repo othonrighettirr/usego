@@ -1,0 +1,161 @@
+version: '3.8'
+
+# ===========================================
+# GO-API - Docker Compose com Traefik
+# ===========================================
+#
+# ACESSOS (configure seus domínios abaixo):
+# - Frontend: https://frontend.mundodamidia.com
+# - API: https://api.mundodamidia.com
+#
+# ANTES DE RODAR:
+# 1. Aponte os domínios para o IP do servidor no DNS
+# 2. Edite as variáveis marcadas com # CONFIGURE
+# 3. Execute: docker-compose up -d --build
+#
+# ===========================================
+
+services:
+  # =========================================
+  # TRAEFIK - Proxy Reverso + SSL Automático
+  # =========================================
+  traefik:
+    image: traefik:v2.10
+    container_name: gopro-traefik
+    restart: always
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=seu-email@exemplo.com"  # CONFIGURE: seu email
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt_data:/letsencrypt
+    networks:
+      - gopro-network
+
+  # =========================================
+  # FRONTEND - Next.js
+  # =========================================
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: gopro-frontend:latest
+    container_name: gopro-frontend
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # ========================================
+      # CONFIGURE: URL da API (seu domínio da API)
+      # ========================================
+      - NEXT_PUBLIC_API_URL=https://api.mundodamidia.com
+    labels:
+      - "traefik.enable=true"
+      # ========================================
+      # CONFIGURE: Domínio do Frontend
+      # ========================================
+      - "traefik.http.routers.frontend.rule=Host(`frontend.mundodamidia.com`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    depends_on:
+      - api
+    networks:
+      - gopro-network
+
+  # =========================================
+  # API - NestJS + Baileys
+  # =========================================
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    image: gopro-backend:latest
+    container_name: gopro-backend
+    restart: always
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://goapi:goapi_secret_2024@postgres:5432/goapi?schema=public
+      - JWT_SECRET=sua-chave-secreta-aqui  # CONFIGURE: gere em https://jwtsecrets.com/
+      - JWT_EXPIRES_IN=3000000d
+      - CORS_ORIGIN=*
+      - ADMIN_EMAIL=admin@exemplo.com  # CONFIGURE: seu email
+      - ADMIN_PASSWORD=sua-senha-aqui  # CONFIGURE: sua senha
+      # ========================================
+      # LICENCIAMENTO
+      # ========================================
+      - LICENSE_SERVER=https://usego.com.br
+      - LICENSE_KEY=  # CONFIGURE: sua licença
+      - MACHINE_ID=   # CONFIGURE: seu machine id
+    labels:
+      - "traefik.enable=true"
+      # ========================================
+      # CONFIGURE: Domínio da API
+      # ========================================
+      - "traefik.http.routers.api.rule=Host(`api.mundodamidia.com`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=3001"
+      # ========================================
+      # CORS - Headers para permitir x-api-key
+      # ========================================
+      - "traefik.http.routers.api.middlewares=api-cors"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS,HEAD,PATCH"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowheaders=Content-Type,Authorization,Accept,Origin,X-Requested-With,x-api-key"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowcredentials=true"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolmaxage=100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - sessions_data:/app/sessions
+    networks:
+      - gopro-network
+
+  # =========================================
+  # POSTGRES - Banco de Dados
+  # =========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: gopro-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=goapi
+      - POSTGRES_PASSWORD=goapi_secret_2024
+      - POSTGRES_DB=goapi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goapi -d goapi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - gopro-network
+
+volumes:
+  postgres_data:
+    name: gopro_postgres_data
+  sessions_data:
+    name: gopro_sessions_data
+  letsencrypt_data:
+    name: gopro_letsencrypt_data
+
+networks:
+  gopro-network:
+    name: gopro_network
+    driver: bridge
