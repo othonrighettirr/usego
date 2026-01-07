@@ -220,11 +220,13 @@ export declare class ApiController {
     getNewsletters(req: any): Promise<{
         success: boolean;
         newsletters: any[];
+        total: number;
         info: {
             message: string;
             formato: string;
             comoObter: string;
             endpoints: {
+                listar: string;
                 metadados: string;
                 enviarTexto: string;
                 enviarImagem: string;
@@ -236,6 +238,21 @@ export declare class ApiController {
                 inscritos: string;
             };
         };
+        owned?: undefined;
+    } | {
+        success: boolean;
+        newsletters: {
+            id: any;
+            name: any;
+            description: any;
+            subscribers: number;
+            picture: any;
+            isOwner: boolean;
+            role: string;
+        }[];
+        total: number;
+        owned: number;
+        info?: undefined;
     }>;
     getNewsletterMetadata(newsletterId: string, req: any): Promise<{
         success: boolean;
@@ -342,7 +359,11 @@ export declare class ApiController {
             description: any;
             subscribers: number;
             picture: any;
+            isOwner: boolean;
+            role: string;
         }[];
+        total: number;
+        owned: number;
     }>;
     getChannelSubscribers(newsletterId: string, req: any): Promise<{
         success: boolean;

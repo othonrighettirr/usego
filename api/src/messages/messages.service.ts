@@ -729,33 +729,108 @@ END:VCARD`;
   // ========================================
 
   /**
-   * Informações sobre newsletters
-   * Nota: O Baileys não tem método para listar newsletters seguidas
-   * Use newsletterMetadata com o ID do canal para obter informações
+   * Listar newsletters/canais da instância
+   * Busca do store de chats e retorna com metadados
    */
   async getNewsletters(instanceId: string) {
     const socket = this.baileys.getSocket(instanceId);
     if (!socket) throw new BadRequestException('Instância não conectada');
 
+    // Buscar newsletters do store
+    let newsletters = this.baileys.getNewsletters(instanceId);
+    
+    // Se não tiver newsletters no store, tentar buscar do store de chats
+    if (newsletters.length === 0) {
+      try {
+        const store = (socket as any).store;
+        if (store?.chats) {
+          const allChats = typeof store.chats.all === 'function' 
+            ? store.chats.all() 
+            : Array.from(store.chats.values?.() || []);
+          
+          for (const chat of allChats) {
+            if (chat.id?.endsWith('@newsletter')) {
+              newsletters.push({
+                id: chat.id,
+                name: chat.name || chat.subject || 'Canal',
+                description: chat.description || '',
+                picture: chat.picture || null,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        this.logger.warn(`Não foi possível acessar store de chats: ${e.message}`);
+      }
+    }
+
+    // Se ainda não tiver newsletters, retornar lista vazia com instruções
+    if (newsletters.length === 0) {
+      return { 
+        success: true, 
+        newsletters: [],
+        total: 0,
+        info: {
+          message: 'Nenhum canal encontrado. Para interagir com newsletters/canais, você precisa do ID do canal.',
+          formato: '120363xxxxxxxxxx@newsletter',
+          comoObter: 'Copie o link do canal (ex: https://whatsapp.com/channel/0029VaXXXXXX) e use o código após /channel/',
+          endpoints: {
+            listar: 'GET /api/newsletter',
+            metadados: 'GET /api/newsletter/{newsletterId}',
+            enviarTexto: 'POST /api/newsletter/text',
+            enviarImagem: 'POST /api/newsletter/image',
+            enviarVideo: 'POST /api/newsletter/video',
+            criar: 'POST /api/newsletter/create',
+            seguir: 'POST /api/newsletter/follow',
+            deixarDeSeguir: 'POST /api/newsletter/unfollow',
+            silenciar: 'POST /api/newsletter/mute',
+            inscritos: 'GET /api/newsletter/{newsletterId}/subscribers'
+          }
+        }
+      };
+    }
+
+    // Buscar metadados para cada newsletter
+    const newsletterList = await Promise.all(
+      newsletters.map(async (n: any) => {
+        let subscribers = 0;
+        let name = n.name || 'Canal sem nome';
+        let isOwner = false;
+        let role = 'SUBSCRIBER';
+        
+        try {
+          const metadata = await socket.newsletterMetadata('jid', n.id);
+          if (metadata) {
+            name = metadata.name || name;
+            if (metadata.role) {
+              role = metadata.role;
+              isOwner = metadata.role === 'OWNER' || metadata.role === 'ADMIN';
+            }
+          }
+        } catch {}
+        
+        try {
+          const result = await socket.newsletterSubscribers(n.id);
+          subscribers = result?.subscribers || 0;
+        } catch {}
+        
+        return {
+          id: n.id,
+          name,
+          description: n.description || '',
+          subscribers,
+          picture: n.picture || null,
+          isOwner,
+          role,
+        };
+      })
+    );
+
     return { 
       success: true, 
-      newsletters: [],
-      info: {
-        message: 'Para interagir com newsletters/canais, você precisa do ID do canal.',
-        formato: '120363xxxxxxxxxx@newsletter',
-        comoObter: 'Copie o link do canal (ex: https://whatsapp.com/channel/0029VaXXXXXX) e use o código após /channel/',
-        endpoints: {
-          metadados: 'GET /api/newsletter/{newsletterId}',
-          enviarTexto: 'POST /api/newsletter/text',
-          enviarImagem: 'POST /api/newsletter/image',
-          enviarVideo: 'POST /api/newsletter/video',
-          criar: 'POST /api/newsletter/create',
-          seguir: 'POST /api/newsletter/follow',
-          deixarDeSeguir: 'POST /api/newsletter/unfollow',
-          silenciar: 'POST /api/newsletter/mute',
-          inscritos: 'GET /api/newsletter/{newsletterId}/subscribers'
-        }
-      }
+      newsletters: newsletterList,
+      total: newsletterList.length,
+      owned: newsletterList.filter(n => n.isOwner).length,
     };
   }
 
@@ -1137,7 +1212,7 @@ END:VCARD`;
   }
 
   /**
-   * Listar canais/newsletters seguidos
+   * Listar canais/newsletters seguidos e próprios
    */
   async getFollowedNewsletters(instanceId: string) {
     const socket = this.baileys.getSocket(instanceId);
@@ -1146,16 +1221,49 @@ END:VCARD`;
     // Buscar newsletters do store
     let newsletters = this.baileys.getNewsletters(instanceId);
     
+    // Se não tiver newsletters no store, tentar buscar do store de chats
+    if (newsletters.length === 0) {
+      try {
+        // Acessar store interno do socket se disponível
+        const store = (socket as any).store;
+        if (store?.chats) {
+          const allChats = typeof store.chats.all === 'function' 
+            ? store.chats.all() 
+            : Array.from(store.chats.values?.() || []);
+          
+          for (const chat of allChats) {
+            if (chat.id?.endsWith('@newsletter')) {
+              newsletters.push({
+                id: chat.id,
+                name: chat.name || chat.subject || 'Canal',
+                description: chat.description || '',
+                picture: chat.picture || null,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        this.logger.warn(`Não foi possível acessar store de chats: ${e.message}`);
+      }
+    }
+    
     // Buscar metadados e inscritos para cada newsletter
     const newsletterList = await Promise.all(
       newsletters.map(async (n: any) => {
         let subscribers = 0;
         let name = n.name || 'Canal sem nome';
+        let isOwner = false;
+        let role = 'SUBSCRIBER';
         
         try {
           const metadata = await socket.newsletterMetadata('jid', n.id);
           if (metadata) {
             name = metadata.name || name;
+            // Verificar se é dono (owner)
+            if (metadata.state === 'ACTIVE' && metadata.role) {
+              role = metadata.role;
+              isOwner = metadata.role === 'OWNER' || metadata.role === 'ADMIN';
+            }
           }
         } catch {}
         
@@ -1170,11 +1278,18 @@ END:VCARD`;
           description: n.description || '',
           subscribers,
           picture: n.picture || null,
+          isOwner,
+          role,
         };
       })
     );
 
-    return { success: true, newsletters: newsletterList };
+    return { 
+      success: true, 
+      newsletters: newsletterList,
+      total: newsletterList.length,
+      owned: newsletterList.filter(n => n.isOwner).length,
+    };
   }
 
   /**

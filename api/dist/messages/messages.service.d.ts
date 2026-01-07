@@ -184,11 +184,13 @@ export declare class MessagesService {
     getNewsletters(instanceId: string): Promise<{
         success: boolean;
         newsletters: any[];
+        total: number;
         info: {
             message: string;
             formato: string;
             comoObter: string;
             endpoints: {
+                listar: string;
                 metadados: string;
                 enviarTexto: string;
                 enviarImagem: string;
@@ -200,6 +202,21 @@ export declare class MessagesService {
                 inscritos: string;
             };
         };
+        owned?: undefined;
+    } | {
+        success: boolean;
+        newsletters: {
+            id: any;
+            name: any;
+            description: any;
+            subscribers: number;
+            picture: any;
+            isOwner: boolean;
+            role: string;
+        }[];
+        total: number;
+        owned: number;
+        info?: undefined;
     }>;
     getNewsletterMetadata(instanceId: string, newsletterId: string): Promise<{
         success: boolean;
@@ -289,7 +306,11 @@ export declare class MessagesService {
             description: any;
             subscribers: number;
             picture: any;
+            isOwner: boolean;
+            role: string;
         }[];
+        total: number;
+        owned: number;
     }>;
     getChannelSubscribers(instanceId: string, newsletterId: string): Promise<{
         success: boolean;

@@ -80,18 +80,19 @@ const CATEGORIES: EndpointCategory[] = [
     name: 'Newsletter / Canais',
     icon: '📢',
     endpoints: [
-      { method: 'GET', path: '/api/newsletter', desc: 'Info newsletters' },
+      { method: 'GET', path: '/api/newsletter', desc: 'Listar newsletters/canais' },
+      { method: 'GET', path: '/api/contacts/newsletters', desc: 'Listar canais seguidos/próprios' },
       { method: 'GET', path: '/api/newsletter/{id}', desc: 'Metadados do canal' },
       { method: 'GET', path: '/api/newsletter/{id}/subscribers', desc: 'Número de inscritos' },
       { method: 'GET', path: '/api/newsletter/{id}/messages', desc: 'Mensagens do canal' },
       { method: 'POST', path: '/api/newsletter/create', desc: 'Criar canal', body: { name: 'Nome do Canal', description: 'Descrição' } },
-      { method: 'POST', path: '/api/newsletter/follow', desc: 'Seguir canal', body: { newsletterId: 'CANAL_ID' } },
-      { method: 'POST', path: '/api/newsletter/unfollow', desc: 'Deixar de seguir', body: { newsletterId: 'CANAL_ID' } },
-      { method: 'POST', path: '/api/newsletter/mute', desc: 'Silenciar canal', body: { newsletterId: 'CANAL_ID' } },
-      { method: 'POST', path: '/api/newsletter/unmute', desc: 'Dessilenciar', body: { newsletterId: 'CANAL_ID' } },
-      { method: 'POST', path: '/api/newsletter/text', desc: 'Enviar texto p/ canal', body: { newsletterId: 'CANAL_ID', text: 'Mensagem' } },
-      { method: 'POST', path: '/api/newsletter/image', desc: 'Enviar imagem p/ canal', body: { newsletterId: 'CANAL_ID', url: 'https://...', caption: 'Legenda' } },
-      { method: 'POST', path: '/api/newsletter/video', desc: 'Enviar vídeo p/ canal', body: { newsletterId: 'CANAL_ID', url: 'https://...', caption: 'Legenda' } },
+      { method: 'POST', path: '/api/newsletter/follow', desc: 'Seguir canal', body: { newsletterId: 'CANAL_ID@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/unfollow', desc: 'Deixar de seguir', body: { newsletterId: 'CANAL_ID@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/mute', desc: 'Silenciar canal', body: { newsletterId: 'CANAL_ID@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/unmute', desc: 'Dessilenciar', body: { newsletterId: 'CANAL_ID@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/text', desc: 'Enviar texto p/ canal', body: { newsletterId: 'CANAL_ID@newsletter', text: 'Mensagem' } },
+      { method: 'POST', path: '/api/newsletter/image', desc: 'Enviar imagem p/ canal', body: { newsletterId: 'CANAL_ID@newsletter', imageUrl: 'https://...', caption: 'Legenda' } },
+      { method: 'POST', path: '/api/newsletter/video', desc: 'Enviar vídeo p/ canal', body: { newsletterId: 'CANAL_ID@newsletter', videoUrl: 'https://...', caption: 'Legenda' } },
     ],
   },
 ];
@@ -163,8 +164,6 @@ export default function ApiTest() {
       } else {
         url = `${baseUrl}${path}`;
       }
-      
-      console.log('Testing:', method, url);
       
       const response = await fetch(url, {
         method,

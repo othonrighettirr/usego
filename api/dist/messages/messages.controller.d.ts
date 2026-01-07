@@ -179,11 +179,13 @@ export declare class MessagesController {
     getNewsletters(instanceId: string): Promise<{
         success: boolean;
         newsletters: any[];
+        total: number;
         info: {
             message: string;
             formato: string;
             comoObter: string;
             endpoints: {
+                listar: string;
                 metadados: string;
                 enviarTexto: string;
                 enviarImagem: string;
@@ -195,6 +197,21 @@ export declare class MessagesController {
                 inscritos: string;
             };
         };
+        owned?: undefined;
+    } | {
+        success: boolean;
+        newsletters: {
+            id: any;
+            name: any;
+            description: any;
+            subscribers: number;
+            picture: any;
+            isOwner: boolean;
+            role: string;
+        }[];
+        total: number;
+        owned: number;
+        info?: undefined;
     }>;
     sendNewsletterText(dto: SendNewsletterTextDto): Promise<{
         success: boolean;
