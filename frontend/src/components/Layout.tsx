@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/store/auth';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface NavItem {
   href: string;
@@ -26,29 +26,15 @@ const systemItems: NavItem[] = [
 // Contribution Banner Component
 const ContributionBanner = () => {
   const [isVisible, setIsVisible] = useState(true);
-  const [isDismissed, setIsDismissed] = useState(false);
-
-  useEffect(() => {
-    const dismissed = localStorage.getItem('contribution_banner_dismissed');
-    if (dismissed) {
-      const dismissedTime = parseInt(dismissed);
-      // Show again after 24 hours
-      if (Date.now() - dismissedTime < 24 * 60 * 60 * 1000) {
-        setIsDismissed(true);
-      }
-    }
-  }, []);
 
   const handleDismiss = () => {
     setIsVisible(false);
-    localStorage.setItem('contribution_banner_dismissed', Date.now().toString());
-    setTimeout(() => setIsDismissed(true), 300);
   };
 
-  if (isDismissed) return null;
+  if (!isVisible) return null;
 
   return (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-6 z-50 transition-all duration-300 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-6 z-50 transition-all duration-300 opacity-100 translate-y-0">
       <div className="relative flex items-center gap-4 px-5 py-4 bg-[#1a1a1a] border border-primary/30 rounded-2xl shadow-2xl shadow-primary/10 min-w-[320px] max-w-[420px]">
         {/* Icon */}
         <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
@@ -58,7 +44,7 @@ const ContributionBanner = () => {
         {/* Text */}
         <div className="flex-1 min-w-0">
           <h4 className="text-white font-bold text-sm">Faça sua Contribuição</h4>
-          <p className="text-slate-400 text-xs mt-0.5">Com sua ajuda o time GO cresce cada vez mais.</p>
+          <p className="text-slate-400 text-xs mt-0.5">Com sua ajuda o time GO cresce.</p>
         </div>
         
         {/* Button */}
