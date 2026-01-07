@@ -110,7 +110,7 @@ let BaileysService = BaileysService_1 = class BaileysService {
             ignoreGroups: false,
             alwaysOnline: false,
             readMessages: false,
-            syncFullHistory: false,
+            syncFullHistory: true,
             readStatus: false,
             proxy: {
                 enabled: false,
@@ -365,6 +365,17 @@ let BaileysService = BaileysService_1 = class BaileysService {
                     if (msg.pushName && msg.key.remoteJid && instance) {
                         const senderJid = msg.key.participant || msg.key.remoteJid;
                         instance.pushNames.set(senderJid, msg.pushName);
+                    }
+                    if (instance && msg.key.remoteJid?.endsWith('@newsletter')) {
+                        if (!instance.newsletters.has(msg.key.remoteJid)) {
+                            instance.newsletters.set(msg.key.remoteJid, {
+                                id: msg.key.remoteJid,
+                                name: 'Canal',
+                                description: '',
+                                picture: null,
+                            });
+                            this.logger.log(`Newsletter descoberta via mensagem: ${msg.key.remoteJid}`);
+                        }
                     }
                     if (settings.ignoreGroups && msg.key.remoteJid?.endsWith('@g.us')) {
                         continue;

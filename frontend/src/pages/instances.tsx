@@ -85,11 +85,83 @@ export default function Instances() {
   };
 
   const stopInstance = async (id: string) => {
-    try { await api.post(`/instances/${id}/disconnect`); loadInstances(); } catch {}
+    try {
+      Swal.fire({
+        title: 'Parando...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        background: '#1a1a1a',
+        color: '#fff',
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      await api.post(`/instances/${id}/disconnect`);
+      await loadInstances();
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Desconectado!',
+        text: 'A instância foi desconectada.',
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#f59e0b',
+        timer: 2000,
+        timerProgressBar: true,
+      });
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: error.response?.data?.message || 'Não foi possível desconectar.',
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#f59e0b',
+      });
+    }
   };
 
   const restartInstance = async (id: string) => {
-    try { await api.post(`/instances/${id}/restart`); loadInstances(); } catch {}
+    try {
+      // Mostrar loading
+      Swal.fire({
+        title: 'Reiniciando...',
+        text: 'Aguarde enquanto a instância é reiniciada',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        background: '#1a1a1a',
+        color: '#fff',
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      await api.post(`/instances/${id}/restart`);
+      await loadInstances();
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Reiniciado!',
+        text: 'A instância foi reiniciada com sucesso. As novas configurações foram aplicadas.',
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#f59e0b',
+        timer: 3000,
+        timerProgressBar: true,
+      });
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro ao reiniciar',
+        text: error.response?.data?.message || 'Não foi possível reiniciar a instância.',
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#f59e0b',
+      });
+    }
   };
 
   const confirmDelete = async (instance: Instance) => {

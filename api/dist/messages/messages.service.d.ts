@@ -187,10 +187,11 @@ export declare class MessagesService {
         total: number;
         info: {
             message: string;
+            nota: string;
             formato: string;
             comoObter: string;
+            dica: string;
             endpoints: {
-                listar: string;
                 metadados: string;
                 enviarTexto: string;
                 enviarImagem: string;

@@ -771,11 +771,12 @@ END:VCARD`;
         newsletters: [],
         total: 0,
         info: {
-          message: 'Nenhum canal encontrado. Para interagir com newsletters/canais, você precisa do ID do canal.',
+          message: 'Nenhum canal encontrado no cache. Os canais são descobertos automaticamente quando você recebe mensagens ou sincroniza o histórico.',
+          nota: 'Se você sabe o ID de um canal, pode usar os endpoints abaixo diretamente.',
           formato: '120363xxxxxxxxxx@newsletter',
           comoObter: 'Copie o link do canal (ex: https://whatsapp.com/channel/0029VaXXXXXX) e use o código após /channel/',
+          dica: 'Para descobrir canais, envie uma mensagem para um canal ou aguarde receber mensagens.',
           endpoints: {
-            listar: 'GET /api/newsletter',
             metadados: 'GET /api/newsletter/{newsletterId}',
             enviarTexto: 'POST /api/newsletter/text',
             enviarImagem: 'POST /api/newsletter/image',
