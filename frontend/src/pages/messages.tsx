@@ -80,7 +80,7 @@ export default function Messages() {
   return (
     <Layout>
       <div className="mb-8">
-        <h2 className="text-4xl font-black tracking-tight text-white mb-2">Testar API</h2>
+        <h2 className="text-4xl font-black tracking-tight text-white mb-2">Testar Envios</h2>
         <p className="text-slate-400 text-lg font-light">Teste o envio de mensagens para suas instâncias.</p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

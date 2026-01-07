@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Layout from '@/components/Layout';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://goapi-go-api.pdjn0h.easypanel.host';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-usego.pdjn0h.easypanel.host';
 
 interface Endpoint {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -28,16 +28,10 @@ const sections: Section[] = [
     title: 'Autenticação',
     icon: 'lock',
     color: 'blue',
-    description: 'Login e gerenciamento de tokens JWT',
+    description: 'Login e gerenciamento de sessão',
     endpoints: [
-      { method: 'POST', path: '/auth/login', description: 'Fazer login e obter token JWT', body: '{\n  "email": "seu@email.com",\n  "password": "sua_senha"\n}', response: '{\n  "access_token": "eyJhbGciOiJIUzI1NiIs...",\n  "user": { "id": "uuid", "email": "seu@email.com" }\n}',
-        examples: [
-          { lang: 'cURL', code: `curl -X POST "${API_URL}/auth/login" -H "Content-Type: application/json" -d '{"email": "seu@email.com", "password": "sua_senha"}'` },
-          { lang: 'JavaScript', code: `await fetch("${API_URL}/auth/login", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ email: "seu@email.com", password: "sua_senha" })\n});` },
-        ]
-      },
+      { method: 'POST', path: '/auth/login', description: 'Fazer login', body: '{\n  "email": "seu@email.com",\n  "password": "sua_senha"\n}', response: '{\n  "access_token": "eyJhbGciOiJIUzI1NiIs...",\n  "user": { "id": "uuid", "email": "seu@email.com" }\n}' },
       { method: 'POST', path: '/auth/register', description: 'Registrar novo usuário', body: '{\n  "email": "novo@email.com",\n  "password": "senha_segura",\n  "name": "Nome"\n}' },
-      { method: 'POST', path: '/auth/shared-token', description: 'Criar token compartilhado para QR Code', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "expiresInHours": 24\n}' },
     ],
   },
   {
@@ -49,8 +43,8 @@ const sections: Section[] = [
     endpoints: [
       { method: 'GET', path: '/instances', description: 'Listar todas as instâncias', headers: 'Authorization: Bearer {token}' },
       { method: 'POST', path: '/instances', description: 'Criar nova instância', headers: 'Authorization: Bearer {token}', body: '{\n  "name": "Minha Instância"\n}' },
-      { method: 'GET', path: '/instances/:id', description: 'Buscar detalhes de uma instância', headers: 'Authorization: Bearer {token}' },
-      { method: 'PUT', path: '/instances/:id', description: 'Atualizar nome da instância', headers: 'Authorization: Bearer {token}', body: '{\n  "name": "Novo Nome"\n}' },
+      { method: 'GET', path: '/instances/:id', description: 'Buscar detalhes', headers: 'Authorization: Bearer {token}' },
+      { method: 'PUT', path: '/instances/:id', description: 'Atualizar nome', headers: 'Authorization: Bearer {token}', body: '{\n  "name": "Novo Nome"\n}' },
       { method: 'DELETE', path: '/instances/:id', description: 'Deletar instância', headers: 'Authorization: Bearer {token}' },
       { method: 'GET', path: '/instances/:id/qr', description: 'Obter QR Code (base64)', headers: 'Authorization: Bearer {token}' },
       { method: 'POST', path: '/instances/:id/connect', description: 'Iniciar conexão', headers: 'Authorization: Bearer {token}' },
@@ -59,32 +53,10 @@ const sections: Section[] = [
     ],
   },
   {
-    id: 'messages-jwt',
-    title: 'Mensagens (JWT)',
+    id: 'messages',
+    title: 'Mensagens',
     icon: 'chat',
     color: 'purple',
-    description: 'Envio de mensagens com autenticação JWT',
-    endpoints: [
-      { method: 'POST', path: '/messages/text', description: 'Enviar texto', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "text": "Olá!"\n}',
-        examples: [
-          { lang: 'cURL', code: `curl -X POST "${API_URL}/messages/text" -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d '{"instanceId": "uuid", "to": "5511999999999", "text": "Olá!"}'` },
-          { lang: 'JavaScript', code: `await fetch("${API_URL}/messages/text", {\n  method: "POST",\n  headers: { "Authorization": "Bearer TOKEN", "Content-Type": "application/json" },\n  body: JSON.stringify({ instanceId: "uuid", to: "5511999999999", text: "Olá!" })\n});` },
-        ]
-      },
-      { method: 'POST', path: '/messages/image', description: 'Enviar imagem', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "imageUrl": "https://...",\n  "caption": "Legenda"\n}' },
-      { method: 'POST', path: '/messages/audio', description: 'Enviar áudio', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "audioUrl": "https://...",\n  "ptt": true\n}' },
-      { method: 'POST', path: '/messages/video', description: 'Enviar vídeo', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "videoUrl": "https://...",\n  "caption": "Legenda"\n}' },
-      { method: 'POST', path: '/messages/document', description: 'Enviar documento', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "documentUrl": "https://...",\n  "filename": "arquivo.pdf"\n}' },
-      { method: 'POST', path: '/messages/contact', description: 'Enviar contato', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "contactName": "João",\n  "contactPhone": "5511988887777"\n}' },
-      { method: 'POST', path: '/messages/location', description: 'Enviar localização', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "latitude": -23.5505,\n  "longitude": -46.6333\n}' },
-      { method: 'POST', path: '/messages/poll', description: 'Enviar enquete', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "to": "5511999999999",\n  "question": "Pergunta?",\n  "options": ["Op1", "Op2"]\n}' },
-    ],
-  },
-  {
-    id: 'api-key',
-    title: 'API Externa (API Key)',
-    icon: 'key',
-    color: 'amber',
     description: 'Envio de mensagens usando API Key da instância',
     endpoints: [
       { method: 'POST', path: '/api/send/text', description: 'Enviar texto', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "text": "Olá!"\n}',
@@ -92,6 +64,7 @@ const sections: Section[] = [
           { lang: 'cURL', code: `curl -X POST "${API_URL}/api/send/text" -H "x-api-key: SUA_API_KEY" -H "Content-Type: application/json" -d '{"to": "5511999999999", "text": "Olá!"}'` },
           { lang: 'PHP', code: `<?php\n$ch = curl_init("${API_URL}/api/send/text");\ncurl_setopt($ch, CURLOPT_POST, true);\ncurl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["to" => "5511999999999", "text" => "Olá!"]));\ncurl_setopt($ch, CURLOPT_HTTPHEADER, ["x-api-key: SUA_API_KEY", "Content-Type: application/json"]);\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n$response = curl_exec($ch);` },
           { lang: 'Python', code: `import requests\nresponse = requests.post("${API_URL}/api/send/text", headers={"x-api-key": "SUA_API_KEY"}, json={"to": "5511999999999", "text": "Olá!"})` },
+          { lang: 'JavaScript', code: `await fetch("${API_URL}/api/send/text", {\n  method: "POST",\n  headers: { "x-api-key": "SUA_API_KEY", "Content-Type": "application/json" },\n  body: JSON.stringify({ to: "5511999999999", text: "Olá!" })\n});` },
         ]
       },
       { method: 'POST', path: '/api/send/image', description: 'Enviar imagem', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "imageUrl": "https://...",\n  "caption": "Legenda"\n}' },
@@ -99,6 +72,9 @@ const sections: Section[] = [
       { method: 'POST', path: '/api/send/video', description: 'Enviar vídeo', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "videoUrl": "https://...",\n  "caption": "Legenda"\n}' },
       { method: 'POST', path: '/api/send/document', description: 'Enviar documento', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "documentUrl": "https://...",\n  "filename": "arquivo.pdf"\n}' },
       { method: 'POST', path: '/api/send/sticker', description: 'Enviar sticker', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "stickerUrl": "https://..."\n}' },
+      { method: 'POST', path: '/api/send/contact', description: 'Enviar contato', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "contactName": "João",\n  "contactPhone": "5511988887777"\n}' },
+      { method: 'POST', path: '/api/send/location', description: 'Enviar localização', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "latitude": -23.5505,\n  "longitude": -46.6333\n}' },
+      { method: 'POST', path: '/api/send/poll', description: 'Enviar enquete', headers: 'x-api-key: {api_key}', body: '{\n  "to": "5511999999999",\n  "question": "Pergunta?",\n  "options": ["Op1", "Op2"]\n}' },
     ],
   },
   {
@@ -106,18 +82,23 @@ const sections: Section[] = [
     title: 'Grupos',
     icon: 'groups',
     color: 'indigo',
-    description: 'Gerenciamento de grupos WhatsApp',
+    description: 'Gerenciamento e envio de mensagens para grupos',
     endpoints: [
-      { method: 'GET', path: '/instances/:id/contacts/groups', description: 'Listar grupos', headers: 'Authorization: Bearer {token}' },
-      { method: 'POST', path: '/api/group/create', description: 'Criar grupo', headers: 'x-api-key: {api_key}', body: '{\n  "name": "Meu Grupo",\n  "participants": ["5511999999999"]\n}' },
+      { method: 'GET', path: '/api/contacts/groups', description: 'Listar todos os grupos', headers: 'x-api-key: {api_key}' },
+      { method: 'GET', path: '/api/contacts/groups/:groupId/participants', description: 'Listar participantes do grupo', headers: 'x-api-key: {api_key}' },
+      { method: 'POST', path: '/api/group/create', description: 'Criar novo grupo', headers: 'x-api-key: {api_key}', body: '{\n  "name": "Meu Grupo",\n  "participants": ["5511999999999"]\n}' },
       { method: 'POST', path: '/api/group/add', description: 'Adicionar participantes', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "participants": ["5511999999999"]\n}' },
       { method: 'POST', path: '/api/group/remove', description: 'Remover participantes', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "participants": ["5511999999999"]\n}' },
       { method: 'POST', path: '/api/group/promote', description: 'Promover a admin', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "participants": ["5511999999999"]\n}' },
       { method: 'POST', path: '/api/group/demote', description: 'Rebaixar admin', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "participants": ["5511999999999"]\n}' },
-      { method: 'POST', path: '/api/group/subject', description: 'Alterar nome', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "subject": "Novo Nome"\n}' },
+      { method: 'POST', path: '/api/group/subject', description: 'Alterar nome do grupo', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "subject": "Novo Nome"\n}' },
       { method: 'POST', path: '/api/group/description', description: 'Alterar descrição', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "description": "Nova descrição"\n}' },
+      { method: 'POST', path: '/api/group/settings', description: 'Alterar configurações', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us",\n  "announce": true,\n  "restrict": false\n}' },
       { method: 'GET', path: '/api/group/:groupId/invite', description: 'Obter link de convite', headers: 'x-api-key: {api_key}' },
+      { method: 'POST', path: '/api/group/:groupId/revoke', description: 'Revogar link de convite', headers: 'x-api-key: {api_key}' },
       { method: 'POST', path: '/api/group/leave', description: 'Sair do grupo', headers: 'x-api-key: {api_key}', body: '{\n  "groupId": "120363...@g.us"\n}' },
+      { method: 'POST', path: '/api/send/text', description: 'Enviar texto para grupo', headers: 'x-api-key: {api_key}', body: '{\n  "to": "120363...@g.us",\n  "text": "Olá grupo!"\n}' },
+      { method: 'POST', path: '/api/send/image', description: 'Enviar imagem para grupo', headers: 'x-api-key: {api_key}', body: '{\n  "to": "120363...@g.us",\n  "imageUrl": "https://...",\n  "caption": "Legenda"\n}' },
       { method: 'POST', path: '/api/send/mention', description: 'Enviar com menções', headers: 'x-api-key: {api_key}', body: '{\n  "to": "120363...@g.us",\n  "text": "Olá @João!",\n  "mentions": ["5511999999999"]\n}' },
     ],
   },
@@ -128,27 +109,31 @@ const sections: Section[] = [
     color: 'pink',
     description: 'Gerenciamento completo de canais/newsletters do WhatsApp',
     endpoints: [
-      { method: 'GET', path: '/api/newsletter', description: 'Informações sobre endpoints disponíveis', headers: 'x-api-key: {api_key}' },
-      { method: 'GET', path: '/api/newsletter/:newsletterId', description: 'Buscar metadados de uma newsletter', headers: 'x-api-key: {api_key}' },
+      { method: 'GET', path: '/api/newsletter', description: 'Listar canais descobertos', headers: 'x-api-key: {api_key}' },
+      { method: 'GET', path: '/api/contacts/newsletters', description: 'Listar canais seguidos', headers: 'x-api-key: {api_key}' },
+      { method: 'GET', path: '/api/newsletter/:newsletterId', description: 'Buscar metadados', headers: 'x-api-key: {api_key}' },
       { method: 'GET', path: '/api/newsletter/:newsletterId/subscribers', description: 'Obter número de inscritos', headers: 'x-api-key: {api_key}' },
-      { method: 'GET', path: '/api/newsletter/:newsletterId/messages', description: 'Buscar mensagens da newsletter', headers: 'x-api-key: {api_key}' },
-      { method: 'POST', path: '/api/newsletter/create', description: 'Criar nova newsletter', headers: 'x-api-key: {api_key}', body: '{\n  "name": "Meu Canal",\n  "description": "Descrição do canal"\n}',
-        examples: [
-          { lang: 'cURL', code: `curl -X POST "${API_URL}/api/newsletter/create" -H "x-api-key: SUA_API_KEY" -H "Content-Type: application/json" -d '{"name": "Meu Canal", "description": "Descrição"}'` },
-        ]
-      },
-      { method: 'POST', path: '/api/newsletter/follow', description: 'Seguir uma newsletter', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter"\n}' },
-      { method: 'POST', path: '/api/newsletter/unfollow', description: 'Deixar de seguir newsletter', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter"\n}' },
+      { method: 'GET', path: '/api/newsletter/:newsletterId/messages', description: 'Buscar mensagens', headers: 'x-api-key: {api_key}' },
+      { method: 'POST', path: '/api/newsletter/create', description: 'Criar nova newsletter', headers: 'x-api-key: {api_key}', body: '{\n  "name": "Meu Canal",\n  "description": "Descrição do canal"\n}' },
+      { method: 'POST', path: '/api/newsletter/follow', description: 'Seguir newsletter', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter"\n}' },
+      { method: 'POST', path: '/api/newsletter/unfollow', description: 'Deixar de seguir', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter"\n}' },
       { method: 'POST', path: '/api/newsletter/mute', description: 'Silenciar notificações', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter"\n}' },
-      { method: 'POST', path: '/api/newsletter/unmute', description: 'Dessilenciar notificações', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter"\n}' },
-      { method: 'POST', path: '/api/newsletter/text', description: 'Enviar texto (admin)', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter",\n  "text": "Nova atualização!"\n}',
-        examples: [
-          { lang: 'cURL', code: `curl -X POST "${API_URL}/api/newsletter/text" -H "x-api-key: SUA_API_KEY" -H "Content-Type: application/json" -d '{"newsletterId": "120363...@newsletter", "text": "Olá seguidores!"}'` },
-          { lang: 'JavaScript', code: `await fetch("${API_URL}/api/newsletter/text", {\n  method: "POST",\n  headers: { "x-api-key": "SUA_API_KEY", "Content-Type": "application/json" },\n  body: JSON.stringify({ newsletterId: "120363...@newsletter", text: "Olá!" })\n});` },
-        ]
-      },
+      { method: 'POST', path: '/api/newsletter/unmute', description: 'Dessilenciar', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter"\n}' },
+      { method: 'POST', path: '/api/newsletter/text', description: 'Enviar texto (admin)', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter",\n  "text": "Nova atualização!"\n}' },
       { method: 'POST', path: '/api/newsletter/image', description: 'Enviar imagem (admin)', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter",\n  "imageUrl": "https://...",\n  "caption": "Legenda"\n}' },
       { method: 'POST', path: '/api/newsletter/video', description: 'Enviar vídeo (admin)', headers: 'x-api-key: {api_key}', body: '{\n  "newsletterId": "120363...@newsletter",\n  "videoUrl": "https://...",\n  "caption": "Legenda"\n}' },
+    ],
+  },
+  {
+    id: 'contacts',
+    title: 'Contatos',
+    icon: 'contacts',
+    color: 'amber',
+    description: 'Gerenciamento de contatos da instância',
+    endpoints: [
+      { method: 'GET', path: '/api/contacts', description: 'Listar todos os contatos', headers: 'x-api-key: {api_key}' },
+      { method: 'GET', path: '/api/contacts/groups', description: 'Listar todos os grupos', headers: 'x-api-key: {api_key}' },
+      { method: 'GET', path: '/api/contacts/newsletters', description: 'Listar canais seguidos', headers: 'x-api-key: {api_key}' },
     ],
   },
   {
@@ -158,7 +143,7 @@ const sections: Section[] = [
     color: 'cyan',
     description: 'Deletar, reagir e outras ações',
     endpoints: [
-      { method: 'POST', path: '/api/message/delete', description: 'Deletar mensagem', headers: 'x-api-key: {api_key}', body: '{\n  "remoteJid": "5511999999999@s.whatsapp.net",\n  "messageId": "3EB0B430A...",\n  "forEveryone": true\n}' },
+      { method: 'POST', path: '/api/message/delete', description: 'Deletar mensagem', headers: 'x-api-key: {api_key}', body: '{\n  "remoteJid": "5511999999999@s.whatsapp.net",\n  "messageId": "3EB0B430A..."\n}' },
       { method: 'POST', path: '/api/message/react', description: 'Reagir com emoji', headers: 'x-api-key: {api_key}', body: '{\n  "remoteJid": "5511999999999@s.whatsapp.net",\n  "messageId": "3EB0B430A...",\n  "emoji": "👍"\n}' },
     ],
   },
@@ -195,7 +180,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
 };
 
 export default function Docs() {
-  const [expandedSections, setExpandedSections] = useState<string[]>(['auth']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['messages']);
   const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [selectedLang, setSelectedLang] = useState<string>('cURL');
@@ -384,24 +369,22 @@ export default function Docs() {
         })}
       </div>
 
-      {/* Swagger Link */}
+      {/* Testar Endpoints Link */}
       <div className="mt-8 p-5 rounded-2xl bg-gradient-to-r from-primary/10 to-orange-500/10 border border-primary/20">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-2xl">api</span>
+            <span className="material-symbols-outlined text-primary text-2xl">science</span>
             <div>
-              <p className="text-white font-semibold">Swagger UI</p>
-              <p className="text-slate-400 text-sm">Documentação interativa completa</p>
+              <p className="text-white font-semibold">Testar Endpoints</p>
+              <p className="text-slate-400 text-sm">Teste todos os endpoints da API</p>
             </div>
           </div>
           <a
-            href={`${API_URL}/docs`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/api-test"
             className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-hover text-black font-bold rounded-xl transition-all"
           >
-            <span className="material-symbols-outlined text-lg">open_in_new</span>
-            Abrir Swagger
+            <span className="material-symbols-outlined text-lg">play_arrow</span>
+            Abrir Endpoints
           </a>
         </div>
       </div>

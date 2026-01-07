@@ -152,6 +152,12 @@ export class ApiController {
     return this.messagesService.getGroupInviteCode(req.instanceId, groupId);
   }
 
+  @Post('group/:groupId/revoke')
+  @ApiOperation({ summary: 'Revogar link de convite do grupo' })
+  revokeGroupInviteByParam(@Param('groupId') groupId: string, @Req() req: any) {
+    return this.messagesService.revokeGroupInvite(req.instanceId, groupId);
+  }
+
   @Post('group/revoke-invite')
   revokeGroupInvite(@Body() body: { groupId: string }, @Req() req: any) {
     return this.messagesService.revokeGroupInvite(req.instanceId, body.groupId);
@@ -247,6 +253,12 @@ export class ApiController {
   @ApiOperation({ summary: 'Listar participantes de um grupo' })
   getGroupParticipants(@Param('groupId') groupId: string, @Req() req: any) {
     return this.messagesService.getGroupParticipants(req.instanceId, groupId);
+  }
+
+  @Get('contacts')
+  @ApiOperation({ summary: 'Listar todos os contatos da instância' })
+  getContacts(@Req() req: any) {
+    return this.messagesService.getAllContacts(req.instanceId);
   }
 
   @Get('contacts/all')

@@ -13,11 +13,12 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { href: '/instances', label: 'Instâncias', icon: 'smartphone' },
   { href: '/contacts', label: 'Grupos', icon: 'groups' },
-  { href: '/messages', label: 'Testar API', icon: 'api' },
 ];
 
 const systemItems: NavItem[] = [
   { href: '/docs', label: 'Documentação', icon: 'description' },
+  { href: '/api-test', label: 'Testar Endpoints', icon: 'science' },
+  { href: '/messages', label: 'Testar Envios', icon: 'send' },
   { href: 'https://usego.com.br/members/chat', label: 'Suporte', icon: 'support_agent', external: true },
 ];
 

@@ -736,10 +736,11 @@ END:VCARD`;
     const socket = this.baileys.getSocket(instanceId);
     if (!socket) throw new BadRequestException('Instância não conectada');
 
-    // Buscar newsletters do store
+    // Buscar newsletters do store interno do BaileysService
     let newsletters = this.baileys.getNewsletters(instanceId);
+    this.logger.debug(`[getNewsletters] Newsletters no store: ${newsletters.length}`);
     
-    // Se não tiver newsletters no store, tentar buscar do store de chats
+    // Se não tiver newsletters no store, tentar buscar do store de chats do socket
     if (newsletters.length === 0) {
       try {
         const store = (socket as any).store;
@@ -747,6 +748,8 @@ END:VCARD`;
           const allChats = typeof store.chats.all === 'function' 
             ? store.chats.all() 
             : Array.from(store.chats.values?.() || []);
+          
+          this.logger.debug(`[getNewsletters] Total de chats no store: ${allChats.length}`);
           
           for (const chat of allChats) {
             if (chat.id?.endsWith('@newsletter')) {
@@ -758,6 +761,8 @@ END:VCARD`;
               });
             }
           }
+          
+          this.logger.debug(`[getNewsletters] Newsletters encontradas no store de chats: ${newsletters.length}`);
         }
       } catch (e) {
         this.logger.warn(`Não foi possível acessar store de chats: ${e.message}`);
@@ -775,7 +780,7 @@ END:VCARD`;
           nota: 'Se você sabe o ID de um canal, pode usar os endpoints abaixo diretamente.',
           formato: '120363xxxxxxxxxx@newsletter',
           comoObter: 'Copie o link do canal (ex: https://whatsapp.com/channel/0029VaXXXXXX) e use o código após /channel/',
-          dica: 'Para descobrir canais, envie uma mensagem para um canal ou aguarde receber mensagens.',
+          dica: 'Ative "Sincronizar Histórico Completo" nas configurações da instância e reinicie para sincronizar os canais.',
           endpoints: {
             metadados: 'GET /api/newsletter/{newsletterId}',
             enviarTexto: 'POST /api/newsletter/text',
@@ -796,19 +801,33 @@ END:VCARD`;
       newsletters.map(async (n: any) => {
         let subscribers = 0;
         let name = n.name || 'Canal sem nome';
+        let description = n.description || '';
+        let picture = n.picture || null;
         let isOwner = false;
         let role = 'SUBSCRIBER';
         
         try {
           const metadata = await socket.newsletterMetadata('jid', n.id);
+          this.logger.debug(`Newsletter metadata for ${n.id}: ${JSON.stringify(metadata)}`);
           if (metadata) {
-            name = metadata.name || name;
+            // O metadata pode ter diferentes estruturas dependendo da versão do Baileys
+            name = metadata.name || metadata.subject || metadata.title || name;
+            description = metadata.description || metadata.desc || description;
+            picture = metadata.picture?.url || metadata.pictureUrl || metadata.picture || picture;
+            
+            // Verificar role/owner
             if (metadata.role) {
               role = metadata.role;
               isOwner = metadata.role === 'OWNER' || metadata.role === 'ADMIN';
             }
+            if (metadata.state === 'ACTIVE' && metadata.viewer_metadata?.role) {
+              role = metadata.viewer_metadata.role;
+              isOwner = role === 'OWNER' || role === 'ADMIN';
+            }
           }
-        } catch {}
+        } catch (err: any) {
+          this.logger.warn(`Erro ao buscar metadata de ${n.id}: ${err.message}`);
+        }
         
         try {
           const result = await socket.newsletterSubscribers(n.id);
@@ -818,9 +837,9 @@ END:VCARD`;
         return {
           id: n.id,
           name,
-          description: n.description || '',
+          description,
           subscribers,
-          picture: n.picture || null,
+          picture,
           isOwner,
           role,
         };
@@ -880,14 +899,41 @@ END:VCARD`;
     if (!socket) throw new BadRequestException('Instância não conectada');
 
     try {
-      const newsletter = await socket.newsletterCreate(name, description);
-      this.logger.log(`Newsletter criada: ${newsletter.id}`);
+      const result = await socket.newsletterCreate(name, description);
+      
+      // O Baileys pode retornar diferentes estruturas ou null
+      // Mesmo se retornar null, a newsletter pode ter sido criada
+      const newsletterId = result?.id || result?.jid || null;
+      
+      if (newsletterId) {
+        this.logger.log(`Newsletter criada com ID: ${newsletterId}`);
+      } else {
+        this.logger.log(`Newsletter "${name}" criada (ID não retornado pelo Baileys)`);
+      }
+      
       return { 
         success: true, 
-        newsletter,
-        message: 'Newsletter criada com sucesso'
+        newsletter: result || { name, description },
+        id: newsletterId,
+        message: 'Newsletter criada com sucesso! Verifique no WhatsApp.',
+        nota: newsletterId 
+          ? `ID do canal: ${newsletterId}` 
+          : 'O canal foi criado mas o ID não foi retornado. Verifique no WhatsApp e use GET /api/newsletter para listar.'
       };
-    } catch (error) {
+    } catch (error: any) {
+      // Verificar se é erro de parsing mas a operação pode ter funcionado
+      if (error.message?.includes('Cannot read properties of null') || 
+          error.message?.includes('Cannot read properties of undefined')) {
+        this.logger.warn(`Newsletter "${name}" possivelmente criada, mas resposta do Baileys foi null`);
+        return { 
+          success: true, 
+          newsletter: { name, description },
+          id: null,
+          message: 'Newsletter provavelmente criada! Verifique no WhatsApp.',
+          nota: 'O Baileys não retornou o ID, mas a operação pode ter sido bem-sucedida. Verifique no WhatsApp.'
+        };
+      }
+      
       this.logger.error(`Erro ao criar newsletter: ${error.message}`);
       throw new BadRequestException(`Erro ao criar newsletter: ${error.message}`);
     }

@@ -489,9 +489,11 @@ export class BaileysService {
       const instance = this.sockets.get(instanceId);
       if (!instance) return;
       
+      let newsletterCount = 0;
       for (const chat of chats) {
         // Verificar se é uma newsletter (termina com @newsletter)
         if (chat.id?.endsWith('@newsletter')) {
+          newsletterCount++;
           instance.newsletters.set(chat.id, {
             id: chat.id,
             name: (chat as any).name || (chat as any).subject || 'Canal',
@@ -499,16 +501,21 @@ export class BaileysService {
             picture: (chat as any).picture || null,
           });
         }
+      }
+      if (newsletterCount > 0) {
+        this.logger.log(`[chats.upsert] Capturados ${newsletterCount} canais para instância ${instanceId}`);
       }
     });
 
     // Evento de mensagens para capturar newsletters
-    socket.ev.on('messaging-history.set', ({ chats }) => {
+    socket.ev.on('messaging-history.set', ({ chats, messages }) => {
       const instance = this.sockets.get(instanceId);
       if (!instance) return;
       
+      let newsletterCount = 0;
       for (const chat of chats) {
         if (chat.id?.endsWith('@newsletter')) {
+          newsletterCount++;
           instance.newsletters.set(chat.id, {
             id: chat.id,
             name: (chat as any).name || (chat as any).subject || 'Canal',
@@ -518,9 +525,24 @@ export class BaileysService {
         }
       }
       
-      const newsletterCount = instance.newsletters.size;
+      // Também verificar mensagens para descobrir newsletters
+      if (messages && Array.isArray(messages)) {
+        for (const msg of messages) {
+          const jid = (msg as any).key?.remoteJid;
+          if (jid?.endsWith('@newsletter') && !instance.newsletters.has(jid)) {
+            newsletterCount++;
+            instance.newsletters.set(jid, {
+              id: jid,
+              name: 'Canal',
+              description: '',
+              picture: null,
+            });
+          }
+        }
+      }
+      
       if (newsletterCount > 0) {
-        this.logger.log(`Encontrados ${newsletterCount} canais para instância ${instanceId}`);
+        this.logger.log(`[messaging-history.set] Encontrados ${newsletterCount} canais para instância ${instanceId} (total: ${instance.newsletters.size})`);
       }
     });
 
