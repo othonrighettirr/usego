@@ -35,21 +35,42 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const app_module_1 = require("./app.module");
 const prisma_service_1 = require("./shared/prisma.service");
 const bcrypt = __importStar(require("bcryptjs"));
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
-    app.enableCors({
-        origin: true,
-        methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-        exposedHeaders: ['Content-Length', 'Content-Type'],
-        credentials: true,
-        preflightContinue: false,
-        optionsSuccessStatus: 204,
-    });
     app.useGlobalPipes(new common_1.ValidationPipe({ transform: true, whitelist: true }));
+    const config = new swagger_1.DocumentBuilder()
+        .setTitle('GO-API')
+        .setDescription('API WhatsApp com Baileys - Documentação completa dos endpoints')
+        .setVersion('1.0')
+        .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'JWT-auth')
+        .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
+        .addTag('Auth', 'Autenticação e gerenciamento de tokens')
+        .addTag('Instances', 'Gerenciamento de instâncias WhatsApp')
+        .addTag('Messages', 'Envio de mensagens via JWT')
+        .addTag('API', 'Envio de mensagens via API Key')
+        .addTag('Groups', 'Gerenciamento de grupos')
+        .addTag('Newsletter', 'Envio para canais/newsletters')
+        .addTag('Integrations', 'Integrações com Typebot, n8n, Chatwoot')
+        .build();
+    const document = swagger_1.SwaggerModule.createDocument(app, config);
+    swagger_1.SwaggerModule.setup('docs', app, document, {
+        customSiteTitle: 'GO-API - Swagger',
+        customCss: `
+      .swagger-ui .topbar { display: none }
+      .swagger-ui .info { margin: 20px 0 }
+      .swagger-ui .info .title { color: #f59e0b }
+    `,
+        swaggerOptions: {
+            persistAuthorization: true,
+            docExpansion: 'none',
+            filter: true,
+            showRequestDuration: true,
+        },
+    });
     const httpAdapter = app.getHttpAdapter();
     httpAdapter.get('/status', (req, res) => {
         res.json({ status: 'ok', timestamp: new Date().toISOString() });

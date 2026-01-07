@@ -98,6 +98,12 @@ let BaileysService = BaileysService_1 = class BaileysService {
     getLidMapping(instanceId, lid) {
         return this.sockets.get(instanceId)?.lidMappings.get(lid) || null;
     }
+    getNewsletters(instanceId) {
+        const newsletters = this.sockets.get(instanceId)?.newsletters;
+        if (!newsletters)
+            return [];
+        return Array.from(newsletters.values());
+    }
     getSettings(instanceId) {
         return this.settings.get(instanceId) || {
             rejectCalls: false,
@@ -229,240 +235,309 @@ let BaileysService = BaileysService_1 = class BaileysService {
         }
     }
     async connect(instanceId) {
-        const savedSettings = this.loadSettingsFromFile(instanceId);
-        this.settings.set(instanceId, savedSettings);
-        const authDir = path.join(process.cwd(), 'sessions', instanceId);
-        if (!fs.existsSync(authDir)) {
-            fs.mkdirSync(authDir, { recursive: true });
-        }
-        const logger = (0, pino_1.default)({ level: 'silent' });
-        const { state, saveCreds } = await (0, baileys_1.useMultiFileAuthState)(authDir);
-        const { version } = await (0, baileys_1.fetchLatestBaileysVersion)();
-        const proxyAgent = this.createProxyAgent(savedSettings.proxy);
-        const socket = (0, baileys_1.default)({
-            version,
-            logger,
-            printQRInTerminal: false,
-            auth: {
-                creds: state.creds,
-                keys: (0, baileys_1.makeCacheableSignalKeyStore)(state.keys, logger),
-            },
-            generateHighQualityLinkPreview: true,
-            syncFullHistory: savedSettings.syncFullHistory,
-            agent: proxyAgent,
-            fetchAgent: proxyAgent,
-        });
-        this.sockets.set(instanceId, {
-            socket,
-            qr: null,
-            status: 'CONNECTING',
-            phone: null,
-            profilePic: null,
-            name: null,
-            pushNames: new Map(),
-            contacts: new Map(),
-            lidMappings: new Map(),
-        });
-        socket.ev.on('creds.update', saveCreds);
-        socket.ev.on('contacts.update', (updates) => {
-            const instance = this.sockets.get(instanceId);
-            if (!instance)
-                return;
-            for (const contact of updates) {
-                if (contact.id) {
-                    const existing = instance.contacts.get(contact.id) || { id: contact.id };
-                    instance.contacts.set(contact.id, {
-                        ...existing,
-                        ...contact,
-                    });
-                    if (contact.notify) {
-                        instance.pushNames.set(contact.id, contact.notify);
+        try {
+            const savedSettings = this.loadSettingsFromFile(instanceId);
+            this.settings.set(instanceId, savedSettings);
+            const authDir = path.join(process.cwd(), 'sessions', instanceId);
+            if (!fs.existsSync(authDir)) {
+                fs.mkdirSync(authDir, { recursive: true });
+            }
+            const logger = (0, pino_1.default)({ level: 'silent' });
+            const { state, saveCreds } = await (0, baileys_1.useMultiFileAuthState)(authDir);
+            const { version } = await (0, baileys_1.fetchLatestBaileysVersion)();
+            const proxyAgent = this.createProxyAgent(savedSettings.proxy);
+            const socket = (0, baileys_1.default)({
+                version,
+                logger,
+                printQRInTerminal: false,
+                auth: {
+                    creds: state.creds,
+                    keys: (0, baileys_1.makeCacheableSignalKeyStore)(state.keys, logger),
+                },
+                generateHighQualityLinkPreview: true,
+                syncFullHistory: savedSettings.syncFullHistory,
+                agent: proxyAgent,
+                fetchAgent: proxyAgent,
+            });
+            this.sockets.set(instanceId, {
+                socket,
+                qr: null,
+                status: 'CONNECTING',
+                phone: null,
+                profilePic: null,
+                name: null,
+                pushNames: new Map(),
+                contacts: new Map(),
+                lidMappings: new Map(),
+                newsletters: new Map(),
+            });
+            socket.ev.on('creds.update', saveCreds);
+            socket.ev.on('contacts.update', (updates) => {
+                const instance = this.sockets.get(instanceId);
+                if (!instance)
+                    return;
+                for (const contact of updates) {
+                    if (contact.id) {
+                        const existing = instance.contacts.get(contact.id) || { id: contact.id };
+                        instance.contacts.set(contact.id, {
+                            ...existing,
+                            ...contact,
+                        });
+                        if (contact.notify) {
+                            instance.pushNames.set(contact.id, contact.notify);
+                        }
                     }
                 }
-            }
-        });
-        socket.ev.on('contacts.upsert', (contacts) => {
-            const instance = this.sockets.get(instanceId);
-            if (!instance)
-                return;
-            for (const contact of contacts) {
-                if (contact.id) {
-                    instance.contacts.set(contact.id, {
-                        id: contact.id,
-                        name: contact.name,
-                        notify: contact.notify,
-                        verifiedName: contact.verifiedName,
-                    });
-                    const name = contact.notify || contact.name || contact.verifiedName;
-                    if (name) {
-                        instance.pushNames.set(contact.id, name);
+            });
+            socket.ev.on('contacts.upsert', (contacts) => {
+                const instance = this.sockets.get(instanceId);
+                if (!instance)
+                    return;
+                for (const contact of contacts) {
+                    if (contact.id) {
+                        instance.contacts.set(contact.id, {
+                            id: contact.id,
+                            name: contact.name,
+                            notify: contact.notify,
+                            verifiedName: contact.verifiedName,
+                        });
+                        const name = contact.notify || contact.name || contact.verifiedName;
+                        if (name) {
+                            instance.pushNames.set(contact.id, name);
+                        }
                     }
                 }
-            }
-            this.logger.log(`Sincronizados ${contacts.length} contatos para instância ${instanceId}`);
-        });
-        socket.ev.on('lid-mapping.update', (mapping) => {
-            const instance = this.sockets.get(instanceId);
-            if (!instance)
-                return;
-            if (mapping.lid && mapping.pn) {
-                const phone = mapping.pn
-                    .replace(/@s\.whatsapp\.net$/, '')
-                    .replace(/@c\.us$/, '')
-                    .split(':')[0];
-                instance.lidMappings.set(mapping.lid, phone);
-                const lidWithoutSuffix = mapping.lid.replace(/@lid$/, '').split(':')[0];
-                instance.lidMappings.set(lidWithoutSuffix, phone);
-                this.logger.debug(`Mapeamento LID->PN: ${mapping.lid} -> ${phone}`);
-            }
-        });
-        socket.ev.on('messages.upsert', async (m) => {
-            const settings = this.getSettings(instanceId);
-            const instance = this.sockets.get(instanceId);
-            for (const msg of m.messages) {
-                if (msg.pushName && msg.key.remoteJid && instance) {
-                    const senderJid = msg.key.participant || msg.key.remoteJid;
-                    instance.pushNames.set(senderJid, msg.pushName);
+                this.logger.log(`Sincronizados ${contacts.length} contatos para instância ${instanceId}`);
+            });
+            socket.ev.on('chats.upsert', (chats) => {
+                const instance = this.sockets.get(instanceId);
+                if (!instance)
+                    return;
+                for (const chat of chats) {
+                    if (chat.id?.endsWith('@newsletter')) {
+                        instance.newsletters.set(chat.id, {
+                            id: chat.id,
+                            name: chat.name || chat.subject || 'Canal',
+                            description: chat.description || '',
+                            picture: chat.picture || null,
+                        });
+                    }
                 }
-                if (settings.ignoreGroups && msg.key.remoteJid?.endsWith('@g.us')) {
-                    continue;
+            });
+            socket.ev.on('messaging-history.set', ({ chats }) => {
+                const instance = this.sockets.get(instanceId);
+                if (!instance)
+                    return;
+                for (const chat of chats) {
+                    if (chat.id?.endsWith('@newsletter')) {
+                        instance.newsletters.set(chat.id, {
+                            id: chat.id,
+                            name: chat.name || chat.subject || 'Canal',
+                            description: chat.description || '',
+                            picture: chat.picture || null,
+                        });
+                    }
                 }
-                if (settings.readMessages && !msg.key.fromMe) {
-                    await socket.readMessages([msg.key]);
+                const newsletterCount = instance.newsletters.size;
+                if (newsletterCount > 0) {
+                    this.logger.log(`Encontrados ${newsletterCount} canais para instância ${instanceId}`);
                 }
-                const messageText = msg.message?.conversation ||
-                    msg.message?.extendedTextMessage?.text ||
-                    msg.message?.imageMessage?.caption ||
-                    msg.message?.videoMessage?.caption || '';
-                if (messageText && msg.key.remoteJid && this.messageCallbacks.has(instanceId)) {
-                    const callbacks = this.messageCallbacks.get(instanceId);
-                    if (callbacks) {
-                        for (const [, callback] of callbacks) {
-                            try {
-                                callback(msg.key.remoteJid, messageText, msg.key.fromMe || false);
-                            }
-                            catch (err) {
-                                this.logger.error(`Erro ao executar callback de mensagem: ${err}`);
+            });
+            socket.ev.on('lid-mapping.update', (mapping) => {
+                const instance = this.sockets.get(instanceId);
+                if (!instance)
+                    return;
+                if (mapping.lid && mapping.pn) {
+                    const phone = mapping.pn
+                        .replace(/@s\.whatsapp\.net$/, '')
+                        .replace(/@c\.us$/, '')
+                        .split(':')[0];
+                    instance.lidMappings.set(mapping.lid, phone);
+                    const lidWithoutSuffix = mapping.lid.replace(/@lid$/, '').split(':')[0];
+                    instance.lidMappings.set(lidWithoutSuffix, phone);
+                    this.logger.debug(`Mapeamento LID->PN: ${mapping.lid} -> ${phone}`);
+                }
+            });
+            socket.ev.on('messages.upsert', async (m) => {
+                const settings = this.getSettings(instanceId);
+                const instance = this.sockets.get(instanceId);
+                for (const msg of m.messages) {
+                    if (msg.pushName && msg.key.remoteJid && instance) {
+                        const senderJid = msg.key.participant || msg.key.remoteJid;
+                        instance.pushNames.set(senderJid, msg.pushName);
+                    }
+                    if (settings.ignoreGroups && msg.key.remoteJid?.endsWith('@g.us')) {
+                        continue;
+                    }
+                    if (settings.readMessages && !msg.key.fromMe) {
+                        await socket.readMessages([msg.key]);
+                    }
+                    const messageText = msg.message?.conversation ||
+                        msg.message?.extendedTextMessage?.text ||
+                        msg.message?.imageMessage?.caption ||
+                        msg.message?.videoMessage?.caption || '';
+                    if (messageText && msg.key.remoteJid && this.messageCallbacks.has(instanceId)) {
+                        const callbacks = this.messageCallbacks.get(instanceId);
+                        if (callbacks) {
+                            for (const [, callback] of callbacks) {
+                                try {
+                                    callback(msg.key.remoteJid, messageText, msg.key.fromMe || false);
+                                }
+                                catch (err) {
+                                    this.logger.error(`Erro ao executar callback de mensagem: ${err}`);
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
-        socket.ev.on('call', async (calls) => {
-            const settings = this.getSettings(instanceId);
-            if (settings.rejectCalls) {
-                for (const call of calls) {
-                    if (call.status === 'offer') {
-                        await socket.rejectCall(call.id, call.from);
-                        this.logger.log(`Chamada rejeitada de ${call.from}`);
+            });
+            socket.ev.on('call', async (calls) => {
+                const settings = this.getSettings(instanceId);
+                if (settings.rejectCalls) {
+                    for (const call of calls) {
+                        if (call.status === 'offer') {
+                            await socket.rejectCall(call.id, call.from);
+                            this.logger.log(`Chamada rejeitada de ${call.from}`);
+                        }
                     }
                 }
-            }
-        });
-        socket.ev.on('messages.update', async (updates) => {
-            const settings = this.getSettings(instanceId);
-            if (settings.readStatus) {
-                for (const update of updates) {
-                    if (update.key.remoteJid === 'status@broadcast') {
+            });
+            socket.ev.on('messages.update', async (updates) => {
+                const settings = this.getSettings(instanceId);
+                if (settings.readStatus) {
+                    for (const update of updates) {
+                        if (update.key.remoteJid === 'status@broadcast') {
+                        }
                     }
                 }
-            }
-        });
-        socket.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-            if (qr) {
-                const instance = this.sockets.get(instanceId);
-                if (instance)
-                    instance.qr = qr;
-                this.qrCallbacks.get(instanceId)?.(qr);
-                this.logger.log(`QR Code gerado para instância ${instanceId}`);
-            }
-            if (connection === 'close') {
-                const reason = lastDisconnect?.error?.output?.statusCode;
-                const instance = this.sockets.get(instanceId);
-                if (instance)
-                    instance.status = 'DISCONNECTED';
-                this.statusCallbacks.get(instanceId)?.('DISCONNECTED');
-                if (this.reconnecting.get(instanceId)) {
-                    this.logger.warn(`Instância ${instanceId} já está reconectando, ignorando...`);
-                    return;
+            });
+            socket.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, qr } = update;
+                if (qr) {
+                    const instance = this.sockets.get(instanceId);
+                    if (instance)
+                        instance.qr = qr;
+                    this.qrCallbacks.get(instanceId)?.(qr);
+                    this.logger.log(`QR Code gerado para instância ${instanceId}`);
                 }
-                if (reason === baileys_1.DisconnectReason.loggedOut) {
-                    this.logger.log(`Instância ${instanceId} deslogada pelo usuário`);
-                    this.sockets.delete(instanceId);
-                    this.reconnecting.delete(instanceId);
-                    this.reconnectAttempts.delete(instanceId);
-                    return;
-                }
-                const attempts = this.reconnectAttempts.get(instanceId) || 0;
-                if (attempts >= 5) {
-                    this.logger.error(`Instância ${instanceId} falhou após 5 tentativas de reconexão`);
-                    this.sockets.delete(instanceId);
-                    this.reconnecting.delete(instanceId);
-                    this.reconnectAttempts.delete(instanceId);
-                    return;
-                }
-                this.reconnecting.set(instanceId, true);
-                this.reconnectAttempts.set(instanceId, attempts + 1);
-                const delay = Math.min(3000 * Math.pow(2, attempts), 30000);
-                this.logger.warn(`Reconectando instância ${instanceId} em ${delay}ms (tentativa ${attempts + 1}/5)...`);
-                setTimeout(async () => {
-                    try {
-                        await this.connect(instanceId);
+                if (connection === 'close') {
+                    const reason = lastDisconnect?.error?.output?.statusCode;
+                    const reasonMessage = lastDisconnect?.error?.message || 'Unknown';
+                    const instance = this.sockets.get(instanceId);
+                    if (instance)
+                        instance.status = 'DISCONNECTED';
+                    this.statusCallbacks.get(instanceId)?.('DISCONNECTED');
+                    this.logger.warn(`Conexão fechada para ${instanceId}: ${reason} - ${reasonMessage}`);
+                    if (this.reconnecting.get(instanceId)) {
+                        this.logger.warn(`Instância ${instanceId} já está reconectando, ignorando...`);
+                        return;
                     }
-                    finally {
+                    if (reason === baileys_1.DisconnectReason.loggedOut) {
+                        this.logger.log(`Instância ${instanceId} deslogada pelo usuário`);
+                        this.sockets.delete(instanceId);
                         this.reconnecting.delete(instanceId);
+                        this.reconnectAttempts.delete(instanceId);
+                        return;
                     }
-                }, delay);
-            }
-            if (connection === 'open') {
-                const instance = this.sockets.get(instanceId);
-                if (instance) {
-                    instance.status = 'CONNECTED';
-                    instance.qr = null;
-                    this.reconnecting.delete(instanceId);
-                    this.reconnectAttempts.delete(instanceId);
-                    try {
-                        const user = socket.user;
-                        if (user) {
-                            instance.phone = user.id.split(':')[0].split('@')[0];
-                            instance.name = user.name || user.verifiedName || null;
-                            try {
-                                const ppUrl = await socket.profilePictureUrl(user.id, 'image');
-                                instance.profilePic = ppUrl;
-                            }
-                            catch {
-                                instance.profilePic = null;
+                    if (reason === baileys_1.DisconnectReason.connectionReplaced) {
+                        this.logger.warn(`Instância ${instanceId} substituída por outra conexão`);
+                        this.sockets.delete(instanceId);
+                        this.reconnecting.delete(instanceId);
+                        this.reconnectAttempts.delete(instanceId);
+                        return;
+                    }
+                    if (reason === baileys_1.DisconnectReason.forbidden || reason === 403) {
+                        this.logger.error(`Instância ${instanceId} foi banida ou bloqueada`);
+                        this.sockets.delete(instanceId);
+                        this.reconnecting.delete(instanceId);
+                        this.reconnectAttempts.delete(instanceId);
+                        return;
+                    }
+                    const attempts = this.reconnectAttempts.get(instanceId) || 0;
+                    if (attempts >= 3) {
+                        this.logger.error(`Instância ${instanceId} falhou após 3 tentativas de reconexão`);
+                        this.reconnecting.delete(instanceId);
+                        this.reconnectAttempts.delete(instanceId);
+                        return;
+                    }
+                    const shouldReconnect = [
+                        baileys_1.DisconnectReason.connectionClosed,
+                        baileys_1.DisconnectReason.connectionLost,
+                        baileys_1.DisconnectReason.timedOut,
+                        baileys_1.DisconnectReason.restartRequired,
+                    ].includes(reason);
+                    if (!shouldReconnect) {
+                        this.logger.warn(`Instância ${instanceId} desconectada com razão ${reason}, não reconectando automaticamente`);
+                        return;
+                    }
+                    this.reconnecting.set(instanceId, true);
+                    this.reconnectAttempts.set(instanceId, attempts + 1);
+                    const delay = Math.min(5000 * Math.pow(2, attempts), 60000);
+                    this.logger.warn(`Reconectando instância ${instanceId} em ${delay}ms (tentativa ${attempts + 1}/3)...`);
+                    setTimeout(async () => {
+                        try {
+                            await this.connect(instanceId);
+                        }
+                        catch (err) {
+                            this.logger.error(`Erro ao reconectar ${instanceId}: ${err}`);
+                        }
+                        finally {
+                            this.reconnecting.delete(instanceId);
+                        }
+                    }, delay);
+                }
+                if (connection === 'open') {
+                    const instance = this.sockets.get(instanceId);
+                    if (instance) {
+                        instance.status = 'CONNECTED';
+                        instance.qr = null;
+                        this.reconnecting.delete(instanceId);
+                        this.reconnectAttempts.delete(instanceId);
+                        try {
+                            const user = socket.user;
+                            if (user) {
+                                instance.phone = user.id.split(':')[0].split('@')[0];
+                                instance.name = user.name || user.verifiedName || null;
+                                try {
+                                    const ppUrl = await socket.profilePictureUrl(user.id, 'image');
+                                    instance.profilePic = ppUrl;
+                                }
+                                catch {
+                                    instance.profilePic = null;
+                                }
                             }
                         }
+                        catch (e) {
+                            this.logger.warn(`Erro ao obter perfil: ${e}`);
+                        }
+                        this.applySettings(instanceId);
                     }
-                    catch (e) {
-                        this.logger.warn(`Erro ao obter perfil: ${e}`);
+                    this.statusCallbacks.get(instanceId)?.('CONNECTED');
+                    this.logger.log(`Instância ${instanceId} conectada com sucesso!`);
+                }
+            });
+            return new Promise((resolve) => {
+                const checkQR = setInterval(() => {
+                    const instance = this.sockets.get(instanceId);
+                    if (instance?.qr) {
+                        clearInterval(checkQR);
+                        resolve(instance.qr);
                     }
-                    this.applySettings(instanceId);
-                }
-                this.statusCallbacks.get(instanceId)?.('CONNECTED');
-                this.logger.log(`Instância ${instanceId} conectada com sucesso!`);
-            }
-        });
-        return new Promise((resolve) => {
-            const checkQR = setInterval(() => {
-                const instance = this.sockets.get(instanceId);
-                if (instance?.qr) {
+                    if (instance?.status === 'CONNECTED') {
+                        clearInterval(checkQR);
+                        resolve(null);
+                    }
+                }, 500);
+                setTimeout(() => {
                     clearInterval(checkQR);
-                    resolve(instance.qr);
-                }
-                if (instance?.status === 'CONNECTED') {
-                    clearInterval(checkQR);
-                    resolve(null);
-                }
-            }, 500);
-            setTimeout(() => {
-                clearInterval(checkQR);
-                resolve(this.sockets.get(instanceId)?.qr || null);
-            }, 30000);
-        });
+                    resolve(this.sockets.get(instanceId)?.qr || null);
+                }, 30000);
+            });
+        }
+        catch (error) {
+            this.logger.error(`Erro ao conectar instância ${instanceId}: ${error}`);
+            throw error;
+        }
     }
     async disconnect(instanceId) {
         const instance = this.sockets.get(instanceId);

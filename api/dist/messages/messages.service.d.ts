@@ -6,111 +6,113 @@ export declare class MessagesService {
     private baileys;
     private readonly logger;
     constructor(prisma: PrismaService, baileys: BaileysService);
+    private normalizeUrl;
     private downloadMedia;
     private convertToOggOpus;
     private getMimeType;
     private formatPhone;
+    private normalizeBrazilianPhone;
     private getValidWhatsAppNumber;
     private saveMessage;
     sendText(dto: SendTextDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendImage(dto: SendImageDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendAudio(dto: SendAudioDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendLocation(dto: SendLocationDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendVideo(dto: SendVideoDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendDocument(dto: SendDocumentDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendContact(dto: SendContactDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendList(dto: SendListDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendPoll(dto: SendPollDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendSticker(dto: SendStickerDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     createGroup(dto: CreateGroupDto): Promise<{
         success: boolean;
@@ -170,23 +172,70 @@ export declare class MessagesService {
         emoji: string;
     }>;
     sendTextWithMentions(dto: SendTextDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     getNewsletters(instanceId: string): Promise<{
         success: boolean;
-        newsletters: any;
-        message?: undefined;
-    } | {
-        success: boolean;
         newsletters: any[];
+        info: {
+            message: string;
+            formato: string;
+            comoObter: string;
+            endpoints: {
+                metadados: string;
+                enviarTexto: string;
+                enviarImagem: string;
+                enviarVideo: string;
+                criar: string;
+                seguir: string;
+                deixarDeSeguir: string;
+                silenciar: string;
+                inscritos: string;
+            };
+        };
+    }>;
+    getNewsletterMetadata(instanceId: string, newsletterId: string): Promise<{
+        success: boolean;
+        newsletter: any;
+    }>;
+    createNewsletter(instanceId: string, name: string, description?: string): Promise<{
+        success: boolean;
+        newsletter: any;
         message: string;
+    }>;
+    followNewsletter(instanceId: string, newsletterId: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    unfollowNewsletter(instanceId: string, newsletterId: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    muteNewsletter(instanceId: string, newsletterId: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    unmuteNewsletter(instanceId: string, newsletterId: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    getNewsletterSubscribers(instanceId: string, newsletterId: string): Promise<{
+        success: boolean;
+        newsletterId: string;
+        subscribers: any;
+    }>;
+    getNewsletterMessages(instanceId: string, newsletterId: string, count?: number): Promise<{
+        success: boolean;
+        newsletterId: string;
+        messages: any;
+        count: any;
     }>;
     sendNewsletterText(dto: SendNewsletterTextDto): Promise<{
         success: boolean;
@@ -202,5 +251,55 @@ export declare class MessagesService {
         success: boolean;
         newsletterId: string;
         type: string;
+    }>;
+    getGroups(instanceId: string): Promise<{
+        success: boolean;
+        groups: {
+            id: any;
+            name: any;
+            participants: any;
+            creation: any;
+            owner: any;
+        }[];
+        error?: undefined;
+    } | {
+        success: boolean;
+        groups: any[];
+        error: any;
+    }>;
+    getGroupParticipants(instanceId: string, groupId: string): Promise<{
+        success: boolean;
+        groupName: any;
+        groupId: any;
+        participants: any;
+    }>;
+    getAllContacts(instanceId: string): Promise<{
+        success: boolean;
+        contacts: {
+            id: string;
+            phone: string;
+            name: string;
+        }[];
+    }>;
+    getFollowedNewsletters(instanceId: string): Promise<{
+        success: boolean;
+        newsletters: {
+            id: any;
+            name: any;
+            description: any;
+            subscribers: number;
+            picture: any;
+        }[];
+    }>;
+    getChannelSubscribers(instanceId: string, newsletterId: string): Promise<{
+        success: boolean;
+        newsletterId: string;
+        subscribers: any;
+        error?: undefined;
+    } | {
+        success: boolean;
+        subscribers: number;
+        error: any;
+        newsletterId?: undefined;
     }>;
 }

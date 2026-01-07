@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthSharedTokenController = exports.InstancesController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const instances_service_1 = require("./instances.service");
 const instance_dto_1 = require("./dto/instance.dto");
@@ -64,6 +65,8 @@ let InstancesController = class InstancesController {
 exports.InstancesController = InstancesController;
 __decorate([
     (0, common_1.Get)('shared/:token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Acessar QR Code via token compartilhado (público)' }),
+    (0, swagger_1.ApiParam)({ name: 'token', description: 'Token de compartilhamento' }),
     __param(0, (0, common_1.Param)('token')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -72,6 +75,8 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar todas as instâncias' }),
     __param(0, (0, common_1.Request)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -80,6 +85,8 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Buscar detalhes de uma instância' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -89,6 +96,8 @@ __decorate([
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Criar nova instância' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -98,6 +107,8 @@ __decorate([
 __decorate([
     (0, common_1.Put)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Atualizar nome da instância' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
@@ -108,6 +119,8 @@ __decorate([
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Deletar instância' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -117,6 +130,8 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/connect'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Iniciar conexão e gerar QR Code' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -126,6 +141,8 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/disconnect'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Desconectar instância (logout)' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -135,6 +152,8 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/reconnect'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Reconectar instância mantendo sessão' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -144,6 +163,8 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/restart'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Reiniciar instância sem precisar de QR' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -153,6 +174,8 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id/qr'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Obter QR Code (base64)' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -162,6 +185,8 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id/settings'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Obter configurações da instância' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -171,6 +196,8 @@ __decorate([
 __decorate([
     (0, common_1.Put)(':id/settings'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Atualizar configurações da instância' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
@@ -179,6 +206,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], InstancesController.prototype, "updateSettings", null);
 exports.InstancesController = InstancesController = __decorate([
+    (0, swagger_1.ApiTags)('Instances'),
     (0, common_1.Controller)('instances'),
     __metadata("design:paramtypes", [instances_service_1.InstancesService])
 ], InstancesController);
@@ -194,6 +222,8 @@ exports.AuthSharedTokenController = AuthSharedTokenController;
 __decorate([
     (0, common_1.Post)('shared-token'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({ summary: 'Criar token compartilhado para QR Code' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -201,6 +231,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthSharedTokenController.prototype, "createSharedToken", null);
 exports.AuthSharedTokenController = AuthSharedTokenController = __decorate([
+    (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [instances_service_1.InstancesService])
 ], AuthSharedTokenController);

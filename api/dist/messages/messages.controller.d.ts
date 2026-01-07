@@ -4,104 +4,104 @@ export declare class MessagesController {
     private messagesService;
     constructor(messagesService: MessagesService);
     sendText(dto: SendTextDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendImage(dto: SendImageDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendAudio(dto: SendAudioDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendVideo(dto: SendVideoDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendDocument(dto: SendDocumentDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendContact(dto: SendContactDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendLocation(dto: SendLocationDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendList(dto: SendListDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendPoll(dto: SendPollDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendSticker(dto: SendStickerDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     deleteMessage(dto: DeleteMessageDto): Promise<{
         success: boolean;
@@ -112,14 +112,14 @@ export declare class MessagesController {
         emoji: string;
     }>;
     sendWithMentions(dto: SendTextDto): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     createGroup(dto: CreateGroupDto): Promise<{
         success: boolean;
@@ -178,12 +178,23 @@ export declare class MessagesController {
     }>;
     getNewsletters(instanceId: string): Promise<{
         success: boolean;
-        newsletters: any;
-        message?: undefined;
-    } | {
-        success: boolean;
         newsletters: any[];
-        message: string;
+        info: {
+            message: string;
+            formato: string;
+            comoObter: string;
+            endpoints: {
+                metadados: string;
+                enviarTexto: string;
+                enviarImagem: string;
+                enviarVideo: string;
+                criar: string;
+                seguir: string;
+                deixarDeSeguir: string;
+                silenciar: string;
+                inscritos: string;
+            };
+        };
     }>;
     sendNewsletterText(dto: SendNewsletterTextDto): Promise<{
         success: boolean;

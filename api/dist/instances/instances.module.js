@@ -19,7 +19,7 @@ exports.InstancesModule = InstancesModule;
 exports.InstancesModule = InstancesModule = __decorate([
     (0, common_1.Module)({
         imports: [(0, common_1.forwardRef)(() => integrations_module_1.IntegrationsModule)],
-        controllers: [instances_controller_1.InstancesController, instances_controller_1.AuthSharedTokenController, contacts_controller_1.ContactsController],
+        controllers: [contacts_controller_1.ContactsController, instances_controller_1.InstancesController, instances_controller_1.AuthSharedTokenController],
         providers: [instances_service_1.InstancesService, baileys_service_1.BaileysService],
         exports: [baileys_service_1.BaileysService, instances_service_1.InstancesService],
     })

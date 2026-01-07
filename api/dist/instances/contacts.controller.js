@@ -19,6 +19,7 @@ const baileys_service_1 = require("./baileys.service");
 let ContactsController = class ContactsController {
     constructor(baileys) {
         this.baileys = baileys;
+        this.newsletterStore = new Map();
         this.lidCache = new Map();
     }
     extractPhoneNumber(jid) {
@@ -145,6 +146,75 @@ let ContactsController = class ContactsController {
         }));
         return { contacts: contactList };
     }
+    async getNewsletters(instanceId) {
+        const socket = this.baileys.getSocket(instanceId);
+        if (!socket)
+            return { newsletters: [] };
+        let newsletters = this.baileys.getNewsletters(instanceId);
+        if (newsletters.length === 0) {
+            try {
+                const store = socket.store;
+                if (store?.chats) {
+                    const chats = store.chats.all();
+                    for (const chat of chats) {
+                        if (chat.id?.endsWith('@newsletter')) {
+                            newsletters.push({
+                                id: chat.id,
+                                name: chat.name || 'Canal',
+                                description: '',
+                                picture: null,
+                            });
+                        }
+                    }
+                }
+            }
+            catch (e) {
+                console.log('Store não disponível, usando apenas cache');
+            }
+        }
+        const newsletterList = await Promise.all(newsletters.map(async (n) => {
+            let subscribers = 0;
+            let name = n.name || 'Canal sem nome';
+            try {
+                const metadata = await socket.newsletterMetadata('jid', n.id);
+                if (metadata) {
+                    name = metadata.name || name;
+                }
+            }
+            catch { }
+            try {
+                const result = await socket.newsletterSubscribers(n.id);
+                subscribers = result?.subscribers || 0;
+            }
+            catch { }
+            return {
+                id: n.id,
+                name,
+                description: n.description || '',
+                subscribers,
+                picture: n.picture || null,
+            };
+        }));
+        return { newsletters: newsletterList };
+    }
+    async getNewsletterSubscribers(instanceId, newsletterId) {
+        const socket = this.baileys.getSocket(instanceId);
+        if (!socket)
+            return { subscribers: 0 };
+        try {
+            const newsletterJid = newsletterId.includes('@newsletter')
+                ? newsletterId
+                : `${newsletterId}@newsletter`;
+            const result = await socket.newsletterSubscribers(newsletterJid);
+            return {
+                newsletterId: newsletterJid,
+                subscribers: result?.subscribers || 0
+            };
+        }
+        catch (e) {
+            return { subscribers: 0, error: e.message };
+        }
+    }
 };
 exports.ContactsController = ContactsController;
 __decorate([
@@ -169,6 +239,21 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ContactsController.prototype, "getAllContacts", null);
+__decorate([
+    (0, common_1.Get)('newsletters'),
+    __param(0, (0, common_1.Param)('instanceId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ContactsController.prototype, "getNewsletters", null);
+__decorate([
+    (0, common_1.Get)('newsletters/:newsletterId/subscribers'),
+    __param(0, (0, common_1.Param)('instanceId')),
+    __param(1, (0, common_1.Param)('newsletterId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ContactsController.prototype, "getNewsletterSubscribers", null);
 exports.ContactsController = ContactsController = __decorate([
     (0, common_1.Controller)('instances/:instanceId/contacts'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

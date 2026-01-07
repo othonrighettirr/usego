@@ -2,6 +2,7 @@ import { BaileysService } from './baileys.service';
 export declare class ContactsController {
     private baileys;
     constructor(baileys: BaileysService);
+    private newsletterStore;
     private lidCache;
     private extractPhoneNumber;
     private resolveLIDToPhone;
@@ -30,5 +31,27 @@ export declare class ContactsController {
             phone: string;
             name: string;
         }[];
+    }>;
+    getNewsletters(instanceId: string): Promise<{
+        newsletters: {
+            id: any;
+            name: any;
+            description: any;
+            subscribers: number;
+            picture: any;
+        }[];
+    }>;
+    getNewsletterSubscribers(instanceId: string, newsletterId: string): Promise<{
+        subscribers: number;
+        newsletterId?: undefined;
+        error?: undefined;
+    } | {
+        newsletterId: string;
+        subscribers: any;
+        error?: undefined;
+    } | {
+        subscribers: number;
+        error: any;
+        newsletterId?: undefined;
     }>;
 }

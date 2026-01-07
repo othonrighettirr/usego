@@ -144,6 +144,12 @@ export declare class BaileysService {
     } | null;
     getLidMappings(instanceId: string): Map<string, string>;
     getLidMapping(instanceId: string, lid: string): string | null;
+    getNewsletters(instanceId: string): {
+        id: string;
+        name?: string;
+        description?: string;
+        picture?: string;
+    }[];
     getSettings(instanceId: string): InstanceSettings;
     setSettings(instanceId: string, newSettings: InstanceSettingsUpdate): InstanceSettings;
     private applySettings;

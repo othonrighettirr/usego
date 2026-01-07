@@ -7,122 +7,122 @@ export declare class ApiController {
     sendText(dto: Omit<SendTextDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendImage(dto: Omit<SendImageDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendAudio(dto: Omit<SendAudioDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendVideo(dto: Omit<SendVideoDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendDocument(dto: Omit<SendDocumentDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendContact(dto: Omit<SendContactDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendLocation(dto: Omit<SendLocationDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendList(dto: Omit<SendListDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendPoll(dto: Omit<SendPollDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     sendSticker(dto: Omit<SendStickerDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     deleteMessage(dto: Omit<DeleteMessageDto, 'instanceId'> & {
         instanceId?: string;
@@ -139,14 +139,14 @@ export declare class ApiController {
     sendWithMentions(dto: Omit<SendTextDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
+        instanceId: string;
+        to: string;
         id: string;
         from: string;
-        to: string;
         type: string;
         content: import("@prisma/client/runtime/library").JsonValue;
         status: string;
         createdAt: Date;
-        instanceId: string;
     }>;
     createGroup(dto: Omit<CreateGroupDto, 'instanceId'> & {
         instanceId?: string;
@@ -219,11 +219,69 @@ export declare class ApiController {
     }>;
     getNewsletters(req: any): Promise<{
         success: boolean;
-        newsletters: any;
-        message?: undefined;
-    } | {
-        success: boolean;
         newsletters: any[];
+        info: {
+            message: string;
+            formato: string;
+            comoObter: string;
+            endpoints: {
+                metadados: string;
+                enviarTexto: string;
+                enviarImagem: string;
+                enviarVideo: string;
+                criar: string;
+                seguir: string;
+                deixarDeSeguir: string;
+                silenciar: string;
+                inscritos: string;
+            };
+        };
+    }>;
+    getNewsletterMetadata(newsletterId: string, req: any): Promise<{
+        success: boolean;
+        newsletter: any;
+    }>;
+    getNewsletterSubscribers(newsletterId: string, req: any): Promise<{
+        success: boolean;
+        newsletterId: string;
+        subscribers: any;
+    }>;
+    getNewsletterMessages(newsletterId: string, req: any): Promise<{
+        success: boolean;
+        newsletterId: string;
+        messages: any;
+        count: any;
+    }>;
+    createNewsletter(body: {
+        name: string;
+        description?: string;
+    }, req: any): Promise<{
+        success: boolean;
+        newsletter: any;
+        message: string;
+    }>;
+    followNewsletter(body: {
+        newsletterId: string;
+    }, req: any): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    unfollowNewsletter(body: {
+        newsletterId: string;
+    }, req: any): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    muteNewsletter(body: {
+        newsletterId: string;
+    }, req: any): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    unmuteNewsletter(body: {
+        newsletterId: string;
+    }, req: any): Promise<{
+        success: boolean;
         message: string;
     }>;
     sendNewsletterText(dto: Omit<SendNewsletterTextDto, 'instanceId'> & {
@@ -246,5 +304,55 @@ export declare class ApiController {
         success: boolean;
         newsletterId: string;
         type: string;
+    }>;
+    getGroups(req: any): Promise<{
+        success: boolean;
+        groups: {
+            id: any;
+            name: any;
+            participants: any;
+            creation: any;
+            owner: any;
+        }[];
+        error?: undefined;
+    } | {
+        success: boolean;
+        groups: any[];
+        error: any;
+    }>;
+    getGroupParticipants(groupId: string, req: any): Promise<{
+        success: boolean;
+        groupName: any;
+        groupId: any;
+        participants: any;
+    }>;
+    getAllContacts(req: any): Promise<{
+        success: boolean;
+        contacts: {
+            id: string;
+            phone: string;
+            name: string;
+        }[];
+    }>;
+    getFollowedNewsletters(req: any): Promise<{
+        success: boolean;
+        newsletters: {
+            id: any;
+            name: any;
+            description: any;
+            subscribers: number;
+            picture: any;
+        }[];
+    }>;
+    getChannelSubscribers(newsletterId: string, req: any): Promise<{
+        success: boolean;
+        newsletterId: string;
+        subscribers: any;
+        error?: undefined;
+    } | {
+        success: boolean;
+        subscribers: number;
+        error: any;
+        newsletterId?: undefined;
     }>;
 }

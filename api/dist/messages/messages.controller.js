@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MessagesController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const messages_service_1 = require("./messages.service");
 const message_dto_1 = require("./dto/message.dto");
@@ -109,6 +110,7 @@ let MessagesController = class MessagesController {
 exports.MessagesController = MessagesController;
 __decorate([
     (0, common_1.Post)('text'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar mensagem de texto' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [message_dto_1.SendTextDto]),
@@ -116,6 +118,7 @@ __decorate([
 ], MessagesController.prototype, "sendText", null);
 __decorate([
     (0, common_1.Post)('image'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar imagem' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [message_dto_1.SendImageDto]),
@@ -123,6 +126,7 @@ __decorate([
 ], MessagesController.prototype, "sendImage", null);
 __decorate([
     (0, common_1.Post)('audio'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar áudio' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [message_dto_1.SendAudioDto]),
@@ -130,6 +134,7 @@ __decorate([
 ], MessagesController.prototype, "sendAudio", null);
 __decorate([
     (0, common_1.Post)('video'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar vídeo' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [message_dto_1.SendVideoDto]),
@@ -137,6 +142,7 @@ __decorate([
 ], MessagesController.prototype, "sendVideo", null);
 __decorate([
     (0, common_1.Post)('document'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar documento' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [message_dto_1.SendDocumentDto]),
@@ -144,6 +150,7 @@ __decorate([
 ], MessagesController.prototype, "sendDocument", null);
 __decorate([
     (0, common_1.Post)('contact'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar contato' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [message_dto_1.SendContactDto]),
@@ -151,6 +158,7 @@ __decorate([
 ], MessagesController.prototype, "sendContact", null);
 __decorate([
     (0, common_1.Post)('location'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar localização' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [message_dto_1.SendLocationDto]),
@@ -305,6 +313,8 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], MessagesController.prototype, "sendNewsletterVideo", null);
 exports.MessagesController = MessagesController = __decorate([
+    (0, swagger_1.ApiTags)('Messages'),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
     (0, common_1.Controller)('messages'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [messages_service_1.MessagesService])

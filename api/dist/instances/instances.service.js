@@ -67,6 +67,16 @@ let InstancesService = class InstancesService {
             where: { userId },
             orderBy: { createdAt: 'desc' },
         });
+        for (const instance of instances) {
+            if (!instance.apiKey) {
+                const apiKey = crypto.randomBytes(32).toString('hex');
+                await this.prisma.instance.update({
+                    where: { id: instance.id },
+                    data: { apiKey },
+                });
+                instance.apiKey = apiKey;
+            }
+        }
         return instances.map((i) => ({
             ...i,
             status: this.baileys.getStatus(i.id) || i.status,
@@ -112,10 +122,32 @@ let InstancesService = class InstancesService {
     }
     async connect(id, userId) {
         await this.findOne(id, userId);
-        const qr = await this.baileys.connect(id);
-        this.typebot.registerInstance(id);
-        this.n8n.registerInstance(id);
-        this.chatwoot.registerInstance(id);
+        let qr = null;
+        try {
+            qr = await this.baileys.connect(id);
+        }
+        catch (error) {
+            console.error(`Erro ao conectar instância ${id}:`, error);
+            throw new common_1.BadRequestException(`Erro ao conectar: ${error.message || 'Erro desconhecido'}`);
+        }
+        try {
+            this.typebot.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar Typebot para ${id}:`, e);
+        }
+        try {
+            this.n8n.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar N8n para ${id}:`, e);
+        }
+        try {
+            this.chatwoot.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar Chatwoot para ${id}:`, e);
+        }
         await this.prisma.instance.update({
             where: { id },
             data: { status: qr ? 'WAITING_QR' : 'CONNECTED' },
@@ -133,10 +165,32 @@ let InstancesService = class InstancesService {
     }
     async reconnect(id, userId) {
         await this.findOne(id, userId);
-        const qr = await this.baileys.reconnect(id);
-        this.typebot.registerInstance(id);
-        this.n8n.registerInstance(id);
-        this.chatwoot.registerInstance(id);
+        let qr = null;
+        try {
+            qr = await this.baileys.reconnect(id);
+        }
+        catch (error) {
+            console.error(`Erro ao reconectar instância ${id}:`, error);
+            throw new common_1.BadRequestException(`Erro ao reconectar: ${error.message || 'Erro desconhecido'}`);
+        }
+        try {
+            this.typebot.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar Typebot para ${id}:`, e);
+        }
+        try {
+            this.n8n.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar N8n para ${id}:`, e);
+        }
+        try {
+            this.chatwoot.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar Chatwoot para ${id}:`, e);
+        }
         await this.prisma.instance.update({
             where: { id },
             data: { status: qr ? 'WAITING_QR' : 'CONNECTED' },
@@ -145,10 +199,31 @@ let InstancesService = class InstancesService {
     }
     async restart(id, userId) {
         await this.findOne(id, userId);
-        await this.baileys.restart(id);
-        this.typebot.registerInstance(id);
-        this.n8n.registerInstance(id);
-        this.chatwoot.registerInstance(id);
+        try {
+            await this.baileys.restart(id);
+        }
+        catch (error) {
+            console.error(`Erro ao reiniciar instância ${id}:`, error);
+            throw new common_1.BadRequestException(`Erro ao reiniciar: ${error.message || 'Erro desconhecido'}`);
+        }
+        try {
+            this.typebot.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar Typebot para ${id}:`, e);
+        }
+        try {
+            this.n8n.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar N8n para ${id}:`, e);
+        }
+        try {
+            this.chatwoot.registerInstance(id);
+        }
+        catch (e) {
+            console.warn(`Erro ao registrar Chatwoot para ${id}:`, e);
+        }
         return { message: 'Instância reiniciada com sucesso' };
     }
     async getQR(id, userId) {

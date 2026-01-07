@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ApiController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const api_key_guard_1 = require("../auth/api-key.guard");
 const messages_service_1 = require("./messages.service");
 let ApiController = class ApiController {
@@ -98,6 +99,30 @@ let ApiController = class ApiController {
     getNewsletters(req) {
         return this.messagesService.getNewsletters(req.instanceId);
     }
+    getNewsletterMetadata(newsletterId, req) {
+        return this.messagesService.getNewsletterMetadata(req.instanceId, newsletterId);
+    }
+    getNewsletterSubscribers(newsletterId, req) {
+        return this.messagesService.getNewsletterSubscribers(req.instanceId, newsletterId);
+    }
+    getNewsletterMessages(newsletterId, req) {
+        return this.messagesService.getNewsletterMessages(req.instanceId, newsletterId, 10);
+    }
+    createNewsletter(body, req) {
+        return this.messagesService.createNewsletter(req.instanceId, body.name, body.description);
+    }
+    followNewsletter(body, req) {
+        return this.messagesService.followNewsletter(req.instanceId, body.newsletterId);
+    }
+    unfollowNewsletter(body, req) {
+        return this.messagesService.unfollowNewsletter(req.instanceId, body.newsletterId);
+    }
+    muteNewsletter(body, req) {
+        return this.messagesService.muteNewsletter(req.instanceId, body.newsletterId);
+    }
+    unmuteNewsletter(body, req) {
+        return this.messagesService.unmuteNewsletter(req.instanceId, body.newsletterId);
+    }
     sendNewsletterText(dto, req) {
         return this.messagesService.sendNewsletterText(this.withInstanceId(dto, req));
     }
@@ -107,10 +132,26 @@ let ApiController = class ApiController {
     sendNewsletterVideo(dto, req) {
         return this.messagesService.sendNewsletterVideo(this.withInstanceId(dto, req));
     }
+    getGroups(req) {
+        return this.messagesService.getGroups(req.instanceId);
+    }
+    getGroupParticipants(groupId, req) {
+        return this.messagesService.getGroupParticipants(req.instanceId, groupId);
+    }
+    getAllContacts(req) {
+        return this.messagesService.getAllContacts(req.instanceId);
+    }
+    getFollowedNewsletters(req) {
+        return this.messagesService.getFollowedNewsletters(req.instanceId);
+    }
+    getChannelSubscribers(newsletterId, req) {
+        return this.messagesService.getChannelSubscribers(req.instanceId, newsletterId);
+    }
 };
 exports.ApiController = ApiController;
 __decorate([
     (0, common_1.Post)('send/text'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar texto via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -119,6 +160,7 @@ __decorate([
 ], ApiController.prototype, "sendText", null);
 __decorate([
     (0, common_1.Post)('send/image'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar imagem via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -127,6 +169,7 @@ __decorate([
 ], ApiController.prototype, "sendImage", null);
 __decorate([
     (0, common_1.Post)('send/audio'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar áudio via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -135,6 +178,7 @@ __decorate([
 ], ApiController.prototype, "sendAudio", null);
 __decorate([
     (0, common_1.Post)('send/video'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar vídeo via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -143,6 +187,7 @@ __decorate([
 ], ApiController.prototype, "sendVideo", null);
 __decorate([
     (0, common_1.Post)('send/document'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar documento via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -151,6 +196,7 @@ __decorate([
 ], ApiController.prototype, "sendDocument", null);
 __decorate([
     (0, common_1.Post)('send/contact'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar contato via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -159,6 +205,7 @@ __decorate([
 ], ApiController.prototype, "sendContact", null);
 __decorate([
     (0, common_1.Post)('send/location'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar localização via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -167,6 +214,7 @@ __decorate([
 ], ApiController.prototype, "sendLocation", null);
 __decorate([
     (0, common_1.Post)('send/list'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar lista via API Key' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -303,13 +351,87 @@ __decorate([
 ], ApiController.prototype, "revokeGroupInvite", null);
 __decorate([
     (0, common_1.Get)('newsletter'),
+    (0, swagger_1.ApiOperation)({ summary: 'Informações sobre newsletters e endpoints disponíveis' }),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], ApiController.prototype, "getNewsletters", null);
 __decorate([
+    (0, common_1.Get)('newsletter/:newsletterId'),
+    (0, swagger_1.ApiOperation)({ summary: 'Buscar metadados de uma newsletter' }),
+    __param(0, (0, common_1.Param)('newsletterId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getNewsletterMetadata", null);
+__decorate([
+    (0, common_1.Get)('newsletter/:newsletterId/subscribers'),
+    (0, swagger_1.ApiOperation)({ summary: 'Obter número de inscritos de uma newsletter' }),
+    __param(0, (0, common_1.Param)('newsletterId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getNewsletterSubscribers", null);
+__decorate([
+    (0, common_1.Get)('newsletter/:newsletterId/messages'),
+    (0, swagger_1.ApiOperation)({ summary: 'Buscar mensagens de uma newsletter' }),
+    __param(0, (0, common_1.Param)('newsletterId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getNewsletterMessages", null);
+__decorate([
+    (0, common_1.Post)('newsletter/create'),
+    (0, swagger_1.ApiOperation)({ summary: 'Criar uma nova newsletter/canal' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "createNewsletter", null);
+__decorate([
+    (0, common_1.Post)('newsletter/follow'),
+    (0, swagger_1.ApiOperation)({ summary: 'Seguir uma newsletter' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "followNewsletter", null);
+__decorate([
+    (0, common_1.Post)('newsletter/unfollow'),
+    (0, swagger_1.ApiOperation)({ summary: 'Deixar de seguir uma newsletter' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "unfollowNewsletter", null);
+__decorate([
+    (0, common_1.Post)('newsletter/mute'),
+    (0, swagger_1.ApiOperation)({ summary: 'Silenciar uma newsletter' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "muteNewsletter", null);
+__decorate([
+    (0, common_1.Post)('newsletter/unmute'),
+    (0, swagger_1.ApiOperation)({ summary: 'Dessilenciar uma newsletter' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "unmuteNewsletter", null);
+__decorate([
     (0, common_1.Post)('newsletter/text'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar texto para newsletter' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -318,6 +440,7 @@ __decorate([
 ], ApiController.prototype, "sendNewsletterText", null);
 __decorate([
     (0, common_1.Post)('newsletter/image'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar imagem para newsletter' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -326,13 +449,58 @@ __decorate([
 ], ApiController.prototype, "sendNewsletterImage", null);
 __decorate([
     (0, common_1.Post)('newsletter/video'),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar vídeo para newsletter' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], ApiController.prototype, "sendNewsletterVideo", null);
+__decorate([
+    (0, common_1.Get)('contacts/groups'),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar todos os grupos da instância' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getGroups", null);
+__decorate([
+    (0, common_1.Get)('contacts/groups/:groupId/participants'),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar participantes de um grupo' }),
+    __param(0, (0, common_1.Param)('groupId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getGroupParticipants", null);
+__decorate([
+    (0, common_1.Get)('contacts/all'),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar todos os contatos da instância' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getAllContacts", null);
+__decorate([
+    (0, common_1.Get)('contacts/newsletters'),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar canais/newsletters seguidos' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getFollowedNewsletters", null);
+__decorate([
+    (0, common_1.Get)('contacts/newsletters/:newsletterId/subscribers'),
+    (0, swagger_1.ApiOperation)({ summary: 'Obter número de inscritos de um canal' }),
+    __param(0, (0, common_1.Param)('newsletterId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getChannelSubscribers", null);
 exports.ApiController = ApiController = __decorate([
+    (0, swagger_1.ApiTags)('API'),
+    (0, swagger_1.ApiSecurity)('api-key'),
     (0, common_1.Controller)('api'),
     (0, common_1.UseGuards)(api_key_guard_1.ApiKeyGuard),
     __metadata("design:paramtypes", [messages_service_1.MessagesService])
