@@ -58,7 +58,7 @@ const ContributionBanner = () => {
         {/* Text */}
         <div className="flex-1 min-w-0">
           <h4 className="text-white font-bold text-sm">Faça sua Contribuição</h4>
-          <p className="text-slate-400 text-xs mt-0.5">Com sua ajuda o time GO cresce.</p>
+          <p className="text-slate-400 text-xs mt-0.5">Com sua ajuda o time GO cresce cada vez mais.</p>
         </div>
         
         {/* Button */}

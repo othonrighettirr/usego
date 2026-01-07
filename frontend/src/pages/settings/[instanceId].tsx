@@ -244,7 +244,7 @@ export default function InstanceSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('behavior');
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['instance', 'events', 'integrations']);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['instance']);
 
   // Settings States
   const [instanceSettings, setInstanceSettings] = useState<InstanceSettings>({
