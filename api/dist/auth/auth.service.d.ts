@@ -24,10 +24,10 @@ export declare class AuthService {
         };
     }>;
     validateUser(userId: string): Promise<{
-        id: string;
-        createdAt: Date;
         email: string;
         password: string;
+        id: string;
+        createdAt: Date;
         role: string;
     }>;
     private generateToken;

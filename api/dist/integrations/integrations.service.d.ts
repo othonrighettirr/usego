@@ -12,18 +12,18 @@ export declare class IntegrationsService {
     private baileys;
     constructor(prisma: PrismaService, typebotService: TypebotService, n8nService: N8nService, chatwootService: ChatwootService, baileys: BaileysService);
     findAll(userId: string): Promise<{
-        id: string;
         type: string;
-        createdAt: Date;
+        id: string;
         userId: string;
+        createdAt: Date;
         config: import("@prisma/client/runtime/library").JsonValue;
         active: boolean;
     }[]>;
     findByType(userId: string, type: string): Promise<{
-        id: string;
         type: string;
-        createdAt: Date;
+        id: string;
         userId: string;
+        createdAt: Date;
         config: import("@prisma/client/runtime/library").JsonValue;
         active: boolean;
     }>;
@@ -33,10 +33,10 @@ export declare class IntegrationsService {
     createN8n(dto: CreateN8nDto, userId: string): Promise<any>;
     createChatwoot(dto: CreateChatwootDto, userId: string): Promise<any>;
     update(id: string, dto: UpdateIntegrationDto, userId: string): Promise<{
-        id: string;
         type: string;
-        createdAt: Date;
+        id: string;
         userId: string;
+        createdAt: Date;
         config: import("@prisma/client/runtime/library").JsonValue;
         active: boolean;
     }>;
@@ -44,10 +44,10 @@ export declare class IntegrationsService {
         message: string;
     }>;
     toggleActive(id: string, userId: string, active: boolean): Promise<{
-        id: string;
         type: string;
-        createdAt: Date;
+        id: string;
         userId: string;
+        createdAt: Date;
         config: import("@prisma/client/runtime/library").JsonValue;
         active: boolean;
     }>;

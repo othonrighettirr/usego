@@ -4,10 +4,10 @@ export declare class IntegrationsController {
     private integrationsService;
     constructor(integrationsService: IntegrationsService);
     findAll(req: any): Promise<{
-        id: string;
         type: string;
-        createdAt: Date;
+        id: string;
         userId: string;
+        createdAt: Date;
         config: import("@prisma/client/runtime/library").JsonValue;
         active: boolean;
     }[]>;
@@ -44,10 +44,10 @@ export declare class IntegrationsController {
         inboxes: any;
     }>;
     update(id: string, dto: UpdateIntegrationDto, req: any): Promise<{
-        id: string;
         type: string;
-        createdAt: Date;
+        id: string;
         userId: string;
+        createdAt: Date;
         config: import("@prisma/client/runtime/library").JsonValue;
         active: boolean;
     }>;

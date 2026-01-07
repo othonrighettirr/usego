@@ -7,122 +7,122 @@ export declare class ApiController {
     sendText(dto: Omit<SendTextDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendImage(dto: Omit<SendImageDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendAudio(dto: Omit<SendAudioDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendVideo(dto: Omit<SendVideoDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendDocument(dto: Omit<SendDocumentDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendContact(dto: Omit<SendContactDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendLocation(dto: Omit<SendLocationDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendList(dto: Omit<SendListDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendPoll(dto: Omit<SendPollDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     sendSticker(dto: Omit<SendStickerDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     deleteMessage(dto: Omit<DeleteMessageDto, 'instanceId'> & {
         instanceId?: string;
@@ -139,14 +139,14 @@ export declare class ApiController {
     sendWithMentions(dto: Omit<SendTextDto, 'instanceId'> & {
         instanceId?: string;
     }, req: any): Promise<{
-        instanceId: string;
-        to: string;
-        id: string;
-        from: string;
         type: string;
-        content: import("@prisma/client/runtime/library").JsonValue;
+        instanceId: string;
+        id: string;
         status: string;
+        content: import("@prisma/client/runtime/library").JsonValue;
         createdAt: Date;
+        to: string;
+        from: string;
     }>;
     createGroup(dto: Omit<CreateGroupDto, 'instanceId'> & {
         instanceId?: string;

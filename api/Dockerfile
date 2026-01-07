@@ -68,31 +68,37 @@ RUN npx prisma@5.22.0 generate
 COPY api/dist/ ./dist/
 
 # =============================================
-# NGINX - Proxy com CORS configurado na porta 3001
+# NGINX - Proxy com CORS (apenas se não existir)
 # =============================================
 RUN cat > /etc/nginx/http.d/default.conf << 'NGINXCONF'
+map $http_origin $cors_origin {
+    default "*";
+    "~^https://front-usego" $http_origin;
+    "~^https://frontend" $http_origin;
+}
+
 server {
     listen 3001;
     server_name _;
     
     location / {
-        # CORS Headers - permite x-api-key
-        add_header 'Access-Control-Allow-Origin' '*' always;
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH' always;
-        add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-api-key, X-Api-Key, X-API-KEY' always;
-        add_header 'Access-Control-Allow-Credentials' 'true' always;
-        add_header 'Access-Control-Max-Age' '86400' always;
-        
         # Preflight OPTIONS - responder imediatamente
         if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Origin' $cors_origin always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH' always;
             add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-api-key, X-Api-Key, X-API-KEY' always;
             add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Access-Control-Max-Age' '86400' always;
             add_header 'Content-Length' '0';
             add_header 'Content-Type' 'text/plain';
             return 204;
         }
+        
+        # CORS Headers para respostas normais
+        add_header 'Access-Control-Allow-Origin' $cors_origin always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH' always;
+        add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-api-key, X-Api-Key, X-API-KEY' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
         
         proxy_pass http://127.0.0.1:3002;
         proxy_http_version 1.1;
@@ -105,6 +111,12 @@ server {
         proxy_cache_bypass $http_upgrade;
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;
+        
+        # Esconder headers CORS duplicados do upstream
+        proxy_hide_header 'Access-Control-Allow-Origin';
+        proxy_hide_header 'Access-Control-Allow-Methods';
+        proxy_hide_header 'Access-Control-Allow-Headers';
+        proxy_hide_header 'Access-Control-Allow-Credentials';
     }
 }
 NGINXCONF

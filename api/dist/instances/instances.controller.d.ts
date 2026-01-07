@@ -14,11 +14,11 @@ export declare class InstancesController {
         profilePic: string;
         profileName: string;
         apiKey: string;
-        id: string;
-        createdAt: Date;
         name: string;
+        id: string;
         userId: string;
         sessionData: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
     }[]>;
     findOne(id: string, req: any): Promise<{
         status: string;
@@ -26,29 +26,29 @@ export declare class InstancesController {
         profilePic: string;
         profileName: string;
         apiKey: string;
-        id: string;
-        createdAt: Date;
         name: string;
+        id: string;
         userId: string;
         sessionData: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
     }>;
     create(dto: CreateInstanceDto, req: any): Promise<{
+        name: string;
         id: string;
         status: string;
-        createdAt: Date;
-        name: string;
         userId: string;
         apiKey: string | null;
         sessionData: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
     }>;
     update(id: string, dto: UpdateInstanceDto, req: any): Promise<{
+        name: string;
         id: string;
         status: string;
-        createdAt: Date;
-        name: string;
         userId: string;
         apiKey: string | null;
         sessionData: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
     }>;
     delete(id: string, req: any): Promise<{
         message: string;
