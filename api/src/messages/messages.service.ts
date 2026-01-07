@@ -1267,6 +1267,7 @@ END:VCARD`;
 
     // Buscar newsletters do store
     let newsletters = this.baileys.getNewsletters(instanceId);
+    this.logger.debug(`[getFollowedNewsletters] Newsletters no store: ${newsletters.length}`);
     
     // Se não tiver newsletters no store, tentar buscar do store de chats
     if (newsletters.length === 0) {
@@ -1282,7 +1283,7 @@ END:VCARD`;
             if (chat.id?.endsWith('@newsletter')) {
               newsletters.push({
                 id: chat.id,
-                name: chat.name || chat.subject || 'Canal',
+                name: chat.name || chat.subject || null,
                 description: chat.description || '',
                 picture: chat.picture || null,
               });
@@ -1298,33 +1299,54 @@ END:VCARD`;
     const newsletterList = await Promise.all(
       newsletters.map(async (n: any) => {
         let subscribers = 0;
-        let name = n.name || 'Canal sem nome';
+        let name = n.name || null;
+        let description = n.description || '';
+        let picture = n.picture || null;
         let isOwner = false;
         let role = 'SUBSCRIBER';
         
+        // SEMPRE buscar metadados para obter o nome correto
         try {
           const metadata = await socket.newsletterMetadata('jid', n.id);
+          this.logger.debug(`[getFollowedNewsletters] Metadata para ${n.id}: ${JSON.stringify(metadata)}`);
+          
           if (metadata) {
-            name = metadata.name || name;
+            // Tentar várias propriedades para o nome
+            name = metadata.name || metadata.subject || metadata.title || name;
+            description = metadata.description || metadata.desc || description;
+            picture = metadata.picture?.url || metadata.pictureUrl || metadata.picture || picture;
+            
             // Verificar se é dono (owner)
-            if (metadata.state === 'ACTIVE' && metadata.role) {
+            if (metadata.role) {
               role = metadata.role;
               isOwner = metadata.role === 'OWNER' || metadata.role === 'ADMIN';
             }
+            if (metadata.state === 'ACTIVE' && metadata.viewer_metadata?.role) {
+              role = metadata.viewer_metadata.role;
+              isOwner = role === 'OWNER' || role === 'ADMIN';
+            }
           }
-        } catch {}
+        } catch (err: any) {
+          this.logger.warn(`Erro ao buscar metadata de ${n.id}: ${err.message}`);
+        }
         
+        // Buscar número de inscritos
         try {
           const result = await socket.newsletterSubscribers(n.id);
           subscribers = result?.subscribers || 0;
         } catch {}
         
+        // Se ainda não tem nome, usar "Canal" como fallback
+        if (!name || name === 'Canal sem nome') {
+          name = 'Canal';
+        }
+        
         return {
           id: n.id,
           name,
-          description: n.description || '',
+          description,
           subscribers,
-          picture: n.picture || null,
+          picture,
           isOwner,
           role,
         };

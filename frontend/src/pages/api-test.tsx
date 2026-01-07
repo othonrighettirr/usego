@@ -28,10 +28,47 @@ interface EndpointCategory {
 
 const CATEGORIES: EndpointCategory[] = [
   {
-    name: 'Contatos',
+    name: 'Mensagens',
+    icon: '💬',
+    endpoints: [
+      { method: 'POST', path: '/api/send/text', desc: 'Enviar texto', body: { to: '5500000000000', text: 'Olá!' } },
+      { method: 'POST', path: '/api/send/image', desc: 'Enviar imagem', body: { to: '5500000000000', imageUrl: 'https://exemplo.com/imagem.jpg', caption: 'Legenda' } },
+      { method: 'POST', path: '/api/send/audio', desc: 'Enviar áudio', body: { to: '5500000000000', audioUrl: 'https://exemplo.com/audio.mp3', ptt: true } },
+      { method: 'POST', path: '/api/send/video', desc: 'Enviar vídeo', body: { to: '5500000000000', videoUrl: 'https://exemplo.com/video.mp4', caption: 'Legenda' } },
+      { method: 'POST', path: '/api/send/document', desc: 'Enviar documento', body: { to: '5500000000000', documentUrl: 'https://exemplo.com/doc.pdf', filename: 'documento.pdf' } },
+      { method: 'POST', path: '/api/send/location', desc: 'Enviar localização', body: { to: '5500000000000', latitude: -23.5505, longitude: -46.6333 } },
+      { method: 'POST', path: '/api/send/contact', desc: 'Enviar contato', body: { to: '5500000000000', contactName: 'João', contactPhone: '5511999999999' } },
+      { method: 'POST', path: '/api/send/poll', desc: 'Enviar enquete', body: { to: '5500000000000', question: 'Qual sua cor favorita?', options: ['Azul', 'Verde', 'Vermelho'] } },
+      { method: 'POST', path: '/api/send/sticker', desc: 'Enviar sticker', body: { to: '5500000000000', stickerUrl: 'https://exemplo.com/sticker.webp' } },
+      { method: 'POST', path: '/api/send/mention', desc: 'Enviar com menções', body: { to: '120363xxx@g.us', text: 'Olá @user!', mentions: ['5511999999999'] } },
+      { method: 'POST', path: '/api/message/react', desc: 'Reagir mensagem', body: { remoteJid: '5500000000000@s.whatsapp.net', messageId: 'ABCD1234', emoji: '👍' } },
+      { method: 'POST', path: '/api/message/delete', desc: 'Deletar mensagem', body: { remoteJid: '5500000000000@s.whatsapp.net', messageId: 'ABCD1234' } },
+    ],
+  },
+  {
+    name: 'Grupos',
     icon: '👥',
     endpoints: [
+      { method: 'GET', path: '/api/contacts/groups', desc: 'Listar todos os grupos' },
+      { method: 'POST', path: '/api/group/create', desc: 'Criar grupo', body: { name: 'Meu Grupo', participants: ['5511999999999', '5511888888888'] } },
+      { method: 'POST', path: '/api/group/add', desc: 'Adicionar participantes', body: { groupId: '120363xxx@g.us', participants: ['5511999999999'] } },
+      { method: 'POST', path: '/api/group/remove', desc: 'Remover participantes', body: { groupId: '120363xxx@g.us', participants: ['5511999999999'] } },
+      { method: 'POST', path: '/api/group/promote', desc: 'Promover a admin', body: { groupId: '120363xxx@g.us', participants: ['5511999999999'] } },
+      { method: 'POST', path: '/api/group/demote', desc: 'Rebaixar admin', body: { groupId: '120363xxx@g.us', participants: ['5511999999999'] } },
+      { method: 'POST', path: '/api/group/subject', desc: 'Alterar nome do grupo', body: { groupId: '120363xxx@g.us', subject: 'Novo Nome' } },
+      { method: 'POST', path: '/api/group/description', desc: 'Alterar descrição', body: { groupId: '120363xxx@g.us', description: 'Nova descrição do grupo' } },
+      { method: 'POST', path: '/api/group/settings', desc: 'Alterar configurações', body: { groupId: '120363xxx@g.us', announce: true, restrict: false } },
+      { method: 'POST', path: '/api/group/leave', desc: 'Sair do grupo', body: { groupId: '120363xxx@g.us' } },
+      { method: 'GET', path: '/api/group/{groupId}/invite', desc: 'Obter link de convite' },
+      { method: 'POST', path: '/api/group/revoke-invite', desc: 'Revogar link de convite', body: { groupId: '120363xxx@g.us' } },
+    ],
+  },
+  {
+    name: 'Contatos',
+    icon: '📇',
+    endpoints: [
       { method: 'GET', path: '/api/contacts', desc: 'Listar todos os contatos' },
+      { method: 'GET', path: '/api/contacts/all', desc: 'Listar todos os contatos (alternativo)' },
       { method: 'GET', path: '/api/contacts/groups', desc: 'Listar todos os grupos' },
       { method: 'GET', path: '/api/contacts/newsletters', desc: 'Listar canais seguidos' },
     ],
@@ -41,6 +78,17 @@ const CATEGORIES: EndpointCategory[] = [
     icon: '📢',
     endpoints: [
       { method: 'GET', path: '/api/newsletter', desc: 'Listar newsletters/canais' },
+      { method: 'GET', path: '/api/newsletter/{newsletterId}', desc: 'Buscar metadados de newsletter' },
+      { method: 'GET', path: '/api/newsletter/{newsletterId}/subscribers', desc: 'Obter número de inscritos' },
+      { method: 'GET', path: '/api/newsletter/{newsletterId}/messages', desc: 'Buscar mensagens da newsletter' },
+      { method: 'POST', path: '/api/newsletter/create', desc: 'Criar newsletter', body: { name: 'Meu Canal', description: 'Descrição do canal' } },
+      { method: 'POST', path: '/api/newsletter/follow', desc: 'Seguir newsletter', body: { newsletterId: '120363xxx@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/unfollow', desc: 'Deixar de seguir', body: { newsletterId: '120363xxx@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/mute', desc: 'Silenciar newsletter', body: { newsletterId: '120363xxx@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/unmute', desc: 'Dessilenciar newsletter', body: { newsletterId: '120363xxx@newsletter' } },
+      { method: 'POST', path: '/api/newsletter/text', desc: 'Enviar texto para newsletter', body: { newsletterId: '120363xxx@newsletter', text: 'Olá seguidores!' } },
+      { method: 'POST', path: '/api/newsletter/image', desc: 'Enviar imagem para newsletter', body: { newsletterId: '120363xxx@newsletter', imageUrl: 'https://exemplo.com/img.jpg', caption: 'Legenda' } },
+      { method: 'POST', path: '/api/newsletter/video', desc: 'Enviar vídeo para newsletter', body: { newsletterId: '120363xxx@newsletter', videoUrl: 'https://exemplo.com/video.mp4', caption: 'Legenda' } },
     ],
   },
 ];
@@ -149,7 +197,6 @@ export default function ApiTest() {
     const total = allEndpoints.length;
     const newResults: TestResult[] = [];
     
-    // Mostrar SweetAlert com progresso
     Swal.fire({
       title: 'Testando Endpoints',
       html: `
@@ -166,9 +213,7 @@ export default function ApiTest() {
       showConfirmButton: false,
       background: '#1a1a1a',
       color: '#fff',
-      didOpen: () => {
-        Swal.showLoading();
-      }
+      didOpen: () => { Swal.showLoading(); }
     });
     
     for (let i = 0; i < allEndpoints.length; i++) {
@@ -177,7 +222,6 @@ export default function ApiTest() {
       newResults.push(result);
       setResults([...newResults]);
       
-      // Atualizar progresso
       const percent = Math.round(((i + 1) / total) * 100);
       const progressBar = document.getElementById('progress-bar');
       const progressText = document.getElementById('progress-text');
@@ -193,7 +237,6 @@ export default function ApiTest() {
     const success = newResults.filter(r => r.status === 'success').length;
     const failed = newResults.filter(r => r.status === 'error').length;
     
-    // Mostrar resultado final
     Swal.fire({
       icon: failed === 0 ? 'success' : 'warning',
       title: failed === 0 ? 'Todos os testes passaram!' : 'Testes concluídos',
@@ -264,17 +307,22 @@ export default function ApiTest() {
     
     Swal.fire({
       icon: result.status === 'success' ? 'success' : 'error',
-      title: result.status === 'success' ? 'Sucesso!' : 'Erro',
+      title: result.status === 'success' ? 'Sucesso!' : 'Erro na requisição',
       html: `
         <div style="text-align: left; margin-top: 15px;">
           <p style="color: #94a3b8; font-size: 14px;"><strong>Endpoint:</strong> ${result.endpoint}</p>
-          <p style="color: #94a3b8; font-size: 14px;"><strong>Status:</strong> <span style="color: ${result.status === 'success' ? '#22c55e' : '#ef4444'}">${result.statusCode || 'Erro'}</span></p>
+          <p style="color: #94a3b8; font-size: 14px;"><strong>Método:</strong> ${result.method}</p>
+          <p style="color: #94a3b8; font-size: 14px;"><strong>Status:</strong> <span style="color: ${result.status === 'success' ? '#22c55e' : '#ef4444'}">${result.statusCode || 'Erro de conexão'}</span></p>
           <p style="color: #94a3b8; font-size: 14px;"><strong>Tempo:</strong> ${result.time}ms</p>
+        </div>
+        <div style="margin-top: 15px; max-height: 200px; overflow-y: auto; background: #0a0a0a; border-radius: 8px; padding: 10px;">
+          <pre style="color: #94a3b8; font-size: 12px; text-align: left; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(result.response || result.error, null, 2)}</pre>
         </div>
       `,
       background: '#1a1a1a',
       color: '#fff',
       confirmButtonColor: '#f59e0b',
+      width: '600px',
     });
   };
 
@@ -371,10 +419,10 @@ export default function ApiTest() {
             className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-black font-bold rounded-xl transition-all disabled:opacity-50"
           >
             <span className="material-symbols-outlined">play_arrow</span>
-            {testing ? 'Testando...' : 'Testar Todos'}
+            {testing ? 'Testando...' : 'Testar Todos GET'}
           </button>
         </div>
-        <p className="text-slate-400 text-sm">Testa automaticamente todos os endpoints GET disponíveis.</p>
+        <p className="text-slate-400 text-sm">Testa automaticamente todos os endpoints GET disponíveis (contatos, grupos, newsletters).</p>
       </div>
 
       {/* Teste Customizado */}
@@ -444,6 +492,7 @@ export default function ApiTest() {
                     <span className={`px-2 py-1 rounded text-xs font-bold ${
                       result.method === 'GET' ? 'bg-green-500/20 text-green-400' :
                       result.method === 'POST' ? 'bg-blue-500/20 text-blue-400' :
+                      result.method === 'DELETE' ? 'bg-red-500/20 text-red-400' :
                       'bg-yellow-500/20 text-yellow-400'
                     }`}>
                       {result.method}
@@ -459,7 +508,7 @@ export default function ApiTest() {
                     </span>
                   </div>
                 </div>
-                <div className="bg-[#1a1a1a] rounded-xl p-4 overflow-x-auto">
+                <div className="bg-[#1a1a1a] rounded-xl p-4 overflow-x-auto max-h-64 overflow-y-auto">
                   <pre className="text-sm text-slate-300 font-mono whitespace-pre-wrap">
                     {JSON.stringify(result.response || result.error, null, 2)}
                   </pre>
@@ -476,6 +525,7 @@ export default function ApiTest() {
           <span className="material-symbols-outlined text-purple-400">list</span>
           Endpoints Disponíveis
         </h3>
+        <p className="text-slate-400 text-sm mb-4">Clique em um endpoint para preencher automaticamente o teste customizado.</p>
         
         <div className="space-y-4">
           {CATEGORIES.map((category) => (
@@ -503,7 +553,10 @@ export default function ApiTest() {
                       className="flex items-center gap-3 p-3 bg-[#252525] rounded-lg cursor-pointer hover:bg-[#2a2a2a] hover:border-primary/30 border border-transparent transition-all"
                     >
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        ep.method === 'GET' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                        ep.method === 'GET' ? 'bg-green-500/20 text-green-400' : 
+                        ep.method === 'POST' ? 'bg-blue-500/20 text-blue-400' :
+                        ep.method === 'DELETE' ? 'bg-red-500/20 text-red-400' :
+                        'bg-yellow-500/20 text-yellow-400'
                       }`}>
                         {ep.method}
                       </span>
