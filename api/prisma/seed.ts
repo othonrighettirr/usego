@@ -18,9 +18,9 @@ async function main() {
         role: 'admin',
       },
     });
-    console.log(`✅ Admin criado: ${adminEmail}`);
+    console.log('✅ Admin criado');
   } else {
-    console.log(`ℹ️ Admin já existe: ${adminEmail}`);
+    console.log('ℹ️ Admin já existe');
   }
 }
 

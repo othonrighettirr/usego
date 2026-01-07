@@ -2,14 +2,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Swal from 'sweetalert2';
 import Image from 'next/image';
-import axios from 'axios';
+import api from '@/lib/api';
 import { useAuth } from '@/store/auth';
-
-interface Config {
-  adminEmail: string;
-  adminPassword: string;
-  apiUrl: string;
-}
 
 export default function Login() {
   const router = useRouter();
@@ -18,7 +12,6 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const [config, setConfig] = useState<Config | null>(null);
 
   // Se já está logado, redirecionar
   useEffect(() => {
@@ -27,49 +20,13 @@ export default function Login() {
     }
   }, [token, router]);
 
-  useEffect(() => {
-    fetch('/api/config')
-      .then(res => res.json())
-      .then(data => {
-        setConfig(data);
-      })
-      .catch(() => {});
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!config) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Erro!',
-        text: 'Configurações não carregadas. Tente novamente.',
-        background: '#1a1a1a',
-        color: '#fff',
-        confirmButtonColor: '#eaa800',
-      });
-      return;
-    }
-
     setLoading(true);
 
-    // Verificar credenciais locais
-    if (form.email !== config.adminEmail || form.password !== config.adminPassword) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Erro!',
-        text: 'E-mail ou senha incorretos.',
-        background: '#1a1a1a',
-        color: '#fff',
-        confirmButtonColor: '#eaa800',
-      });
-      setLoading(false);
-      return;
-    }
-
     try {
-      // Tentar login na API
-      const response = await axios.post(`${config.apiUrl}/auth/login`, {
+      // Login direto na API - ela valida as credenciais
+      const response = await api.post('/auth/login', {
         email: form.email,
         password: form.password,
       });
@@ -89,11 +46,9 @@ export default function Login() {
       });
 
       router.push('/dashboard');
-    } catch (apiError: any) {
-      console.log('Erro no login:', apiError);
-      
+    } catch (error: any) {
       // Verificar se é erro de rede (API offline)
-      if (apiError.code === 'ERR_NETWORK' || !apiError.response) {
+      if (error.code === 'ERR_NETWORK' || !error.response) {
         Swal.fire({
           icon: 'error',
           title: 'API Offline',
@@ -106,7 +61,7 @@ export default function Login() {
         Swal.fire({
           icon: 'error',
           title: 'Erro!',
-          text: apiError.response?.data?.message || 'Erro ao fazer login.',
+          text: error.response?.data?.message || 'E-mail ou senha incorretos.',
           background: '#1a1a1a',
           color: '#fff',
           confirmButtonColor: '#eaa800',
@@ -213,7 +168,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading || !config}
+              disabled={loading}
               className="w-full h-14 bg-primary hover:bg-primary-hover text-black font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (

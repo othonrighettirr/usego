@@ -85,7 +85,7 @@ async function bootstrap() {
             await prisma.user.create({
                 data: { email: adminEmail, password: hash, role: 'ADMIN' },
             });
-            console.log(`✅ Admin user created: ${adminEmail}`);
+            console.log('✅ Admin user created');
         }
         else {
             const hash = await bcrypt.hash(adminPassword, 10);
@@ -93,7 +93,7 @@ async function bootstrap() {
                 where: { email: adminEmail },
                 data: { password: hash },
             });
-            console.log(`✅ Admin user updated: ${adminEmail}`);
+            console.log('✅ Admin user updated');
         }
     }
     catch (err) {
@@ -101,7 +101,7 @@ async function bootstrap() {
     }
     const port = process.env.PORT || 3001;
     await app.listen(port, '0.0.0.0');
-    console.log(`🚀 GO-API running on port ${port}`);
+    console.log('🚀 GO-API running');
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

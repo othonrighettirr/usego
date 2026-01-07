@@ -69,21 +69,22 @@ async function bootstrap() {
       await prisma.user.create({
         data: { email: adminEmail, password: hash, role: 'ADMIN' },
       });
-      console.log(`✅ Admin user created: ${adminEmail}`);
+      console.log('✅ Admin user created');
     } else {
+      // Atualizar senha do admin existente
       const hash = await bcrypt.hash(adminPassword, 10);
       await prisma.user.update({
         where: { email: adminEmail },
         data: { password: hash },
       });
-      console.log(`✅ Admin user updated: ${adminEmail}`);
+      console.log('✅ Admin user updated');
     }
-  } catch (err) {
+  } catch (err: any) {
     console.log('⚠️ Could not create/update admin user:', err.message);
   }
   
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 GO-API running on port ${port}`);
+  console.log('🚀 GO-API running');
 }
 bootstrap();
