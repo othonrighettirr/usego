@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="img/logosite.png" alt="GO-API Logo" width="200"/>
+  <img src="https://content.pstmn.io/c7241132-63e7-4e78-b371-ebbb9fccee3e/aW1nLWxvZ28ucG5n" alt="GO-API Logo" width="200"/>
 </p>
-
-<h1 align="center">🚀 GO-API</h1>
 
 <p align="center">
   <strong>API completa para WhatsApp com múltiplas instâncias, integrações e painel administrativo</strong>
