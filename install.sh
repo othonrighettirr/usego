@@ -1,6 +1,10 @@
 #!/bin/bash
-
 # GO-API Installer v2.0
+# Converter line endings se necessario (Windows -> Linux)
+if [[ "$(head -1 "$0" | tail -c 2)" == $'\r' ]]; then
+    sed -i 's/\r$//' "$0"
+    exec bash "$0" "$@"
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
