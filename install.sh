@@ -128,18 +128,18 @@ select_n8n_version() {
 
 select_chatwoot_version() {
     echo -e "${WHITE}Qual versao do Chatwoot deseja instalar?${NC}" >&2
-    echo "  1) v3.14 (Recomendada)" >&2
-    echo "  2) v3.13" >&2
-    echo "  3) v3.12" >&2
+    echo "  1) v3.13.0 (Recomendada)" >&2
+    echo "  2) v3.12.0" >&2
+    echo "  3) v3.11.0" >&2
     echo "  4) latest" >&2
     echo "" >&2
     echo -n "Escolha [1]: " >&2
     read -r opt
     case "$opt" in
-        2) echo "v3.13" ;;
-        3) echo "v3.12" ;;
+        2) echo "v3.12.0" ;;
+        3) echo "v3.11.0" ;;
         4) echo "latest" ;;
-        *) echo "v3.14" ;;
+        *) echo "v3.13.0" ;;
     esac
 }
 
@@ -527,8 +527,37 @@ install_typebot() {
     read -r TYPEBOT_DOMAIN
     echo -n "Dominio do Viewer [ex: bot.seusite.com]: "
     read -r TYPEBOT_VIEWER_DOMAIN
-    echo -n "Seu EMAIL: "
+    echo -n "Seu EMAIL (admin): "
     read -r TYPEBOT_EMAIL
+    
+    # Configurar SMTP (opcional)
+    echo ""
+    echo -e "${WHITE}Deseja configurar SMTP para envio de emails? (necessario para login)${NC}"
+    echo "  1) Sim, configurar SMTP"
+    echo "  2) Nao, vou configurar depois"
+    echo ""
+    echo -n "Escolha [2]: "
+    read -r SMTP_OPT
+    
+    SMTP_CONFIG=""
+    if [ "$SMTP_OPT" = "1" ]; then
+        echo ""
+        echo -n "SMTP Host [ex: smtp.gmail.com]: "
+        read -r SMTP_HOST
+        echo -n "SMTP Porta [ex: 587]: "
+        read -r SMTP_PORT
+        echo -n "SMTP Usuario (email): "
+        read -r SMTP_USER
+        echo -n "SMTP Senha: "
+        read -r SMTP_PASS
+        SMTP_CONFIG="
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASS}
+      SMTP_SECURE: \"false\"
+      SMTP_AUTH_DISABLED: \"false\""
+    fi
     
     PORT_BUILDER=$(find_free_port 3003)
     PORT_VIEWER=$(find_free_port 3002)
@@ -572,7 +601,7 @@ services:
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       ADMIN_EMAIL: ${TYPEBOT_EMAIL}
       DISABLE_SIGNUP: "false"
-      NEXT_PUBLIC_SMTP_FROM: "noreply@${TYPEBOT_DOMAIN}"
+      NEXT_PUBLIC_SMTP_FROM: "${TYPEBOT_EMAIL}"${SMTP_CONFIG}
     depends_on:
       typebot-postgres:
         condition: service_healthy
