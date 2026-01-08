@@ -1,12 +1,13 @@
 #!/bin/bash
 
 # ===========================================
-# GO-API - Instalador Profissional v1.0
+# GO-API - Instalador Profissional v2.0
+# Com suporte a Typebot, N8N e Chatwoot
 # ===========================================
 
 set -e
 
-# Cores - Tema Laranja/Amber combinando com o sistema
+# Cores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -20,40 +21,125 @@ NC='\033[0m'
 
 # Variáveis globais
 INSTALL_DIR="/opt/goapi"
-REPO_URL="https://github.com/othonrighettirr/gofree.git"
+REPO_URL="https://github.com/usegoapi/usego.git"
+
+# Ferramentas opcionais
+INSTALL_TYPEBOT=false
+INSTALL_N8N=false
+INSTALL_CHATWOOT=false
+
+# Portas padrão
+PORT_FRONTEND=3000
+PORT_API=3001
+PORT_POSTGRES=5432
+PORT_TYPEBOT=3002
+PORT_TYPEBOT_BUILDER=3003
+PORT_N8N=5678
+PORT_CHATWOOT=3004
+PORT_CHATWOOT_REDIS=6379
 
 # Função para limpar tela
 clear_screen() {
     clear
 }
 
+# Função para verificar se porta está em uso
+is_port_in_use() {
+    local port=$1
+    if command -v ss &> /dev/null; then
+        ss -tuln | grep -q ":$port "
+    elif command -v netstat &> /dev/null; then
+        netstat -tuln | grep -q ":$port "
+    else
+        # Fallback usando /dev/tcp
+        (echo >/dev/tcp/localhost/$port) &>/dev/null && return 0 || return 1
+    fi
+}
+
+# Função para encontrar porta livre
+find_free_port() {
+    local start_port=$1
+    local port=$start_port
+    while is_port_in_use $port; do
+        ((port++))
+        if [ $port -gt 65535 ]; then
+            echo "0"
+            return
+        fi
+    done
+    echo $port
+}
+
+# Função para configurar portas automaticamente
+setup_ports() {
+    show_progress "Detectando portas disponíveis"
+    
+    PORT_FRONTEND=$(find_free_port 3000)
+    PORT_API=$(find_free_port $((PORT_FRONTEND + 1)))
+    PORT_POSTGRES=$(find_free_port 5432)
+    
+    if [ "$INSTALL_TYPEBOT" = true ]; then
+        PORT_TYPEBOT=$(find_free_port 3002)
+        PORT_TYPEBOT_BUILDER=$(find_free_port $((PORT_TYPEBOT + 1)))
+    fi
+    
+    if [ "$INSTALL_N8N" = true ]; then
+        PORT_N8N=$(find_free_port 5678)
+    fi
+    
+    if [ "$INSTALL_CHATWOOT" = true ]; then
+        PORT_CHATWOOT=$(find_free_port 3004)
+        PORT_CHATWOOT_REDIS=$(find_free_port 6379)
+    fi
+    
+    show_success "Portas configuradas automaticamente"
+    echo ""
+    echo -e "  ${ORANGE}Frontend:${NC}   $PORT_FRONTEND"
+    echo -e "  ${ORANGE}API:${NC}        $PORT_API"
+    echo -e "  ${ORANGE}PostgreSQL:${NC} $PORT_POSTGRES"
+    
+    if [ "$INSTALL_TYPEBOT" = true ]; then
+        echo -e "  ${ORANGE}Typebot:${NC}    $PORT_TYPEBOT"
+        echo -e "  ${ORANGE}Typebot Builder:${NC} $PORT_TYPEBOT_BUILDER"
+    fi
+    
+    if [ "$INSTALL_N8N" = true ]; then
+        echo -e "  ${ORANGE}N8N:${NC}        $PORT_N8N"
+    fi
+    
+    if [ "$INSTALL_CHATWOOT" = true ]; then
+        echo -e "  ${ORANGE}Chatwoot:${NC}   $PORT_CHATWOOT"
+    fi
+    echo ""
+}
+
 # Função para mostrar o banner
 show_banner() {
     clear_screen
     echo -e "${ORANGE}"
-    echo "   ██████╗  ██████╗        █████╗ ██████╗ ██╗    ██╗   ██╗ ██╗"
-    echo "  ██╔════╝ ██╔═══██╗      ██╔══██╗██╔══██╗██║    ██║   ██║███║"
-    echo "  ██║  ███╗██║   ██║█████╗███████║██████╔╝██║    ██║   ██║╚██║"
-    echo "  ██║   ██║██║   ██║╚════╝██╔══██║██╔═══╝ ██║    ╚██╗ ██╔╝ ██║"
-    echo "  ╚██████╔╝╚██████╔╝      ██║  ██║██║     ██║     ╚████╔╝  ██║"
-    echo "   ╚═════╝  ╚═════╝       ╚═╝  ╚═╝╚═╝     ╚═╝      ╚═══╝   ╚═╝"
+    echo "   ██████╗  ██████╗        █████╗ ██████╗ ██╗    ██╗   ██╗██████╗ "
+    echo "  ██╔════╝ ██╔═══██╗      ██╔══██╗██╔══██╗██║    ██║   ██║╚════██╗"
+    echo "  ██║  ███╗██║   ██║█████╗███████║██████╔╝██║    ██║   ██║ █████╔╝"
+    echo "  ██║   ██║██║   ██║╚════╝██╔══██║██╔═══╝ ██║    ╚██╗ ██╔╝██╔═══╝ "
+    echo "  ╚██████╔╝╚██████╔╝      ██║  ██║██║     ██║     ╚████╔╝ ███████╗"
+    echo "   ╚═════╝  ╚═════╝       ╚═╝  ╚═╝╚═╝     ╚═╝      ╚═══╝  ╚══════╝"
     echo -e "${NC}"
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}   Bem-vindo ao mundo da GO-API, é muito bom ter você aqui${NC}"
-    echo -e "${WHITE}   para fazer sua instalação.${NC}"
+    echo -e "${WHITE}   Bem-vindo ao instalador GO-API v2.0${NC}"
+    echo -e "${WHITE}   Agora com suporte a Typebot, N8N e Chatwoot!${NC}"
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo ""
 }
 
-# Função para mostrar o menu
+# Função para mostrar o menu principal
 show_menu() {
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo -e "${ORANGE}                           MENU${NC}"
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo -e "  ${ORANGE}[1]${NC} ${WHITE}INSTALAR GO-API${NC}"
     echo -e "      ${GRAY}Instalação completa com todas as dependências${NC}"
-    echo -e "  ${ORANGE}[2]${NC} ${WHITE}VERIFICAR LICENÇA${NC}"
-    echo -e "      ${GRAY}Verifica e ativa sua licença${NC}"
+    echo -e "  ${ORANGE}[2]${NC} ${WHITE}INSTALAR FERRAMENTAS EXTRAS${NC}"
+    echo -e "      ${GRAY}Typebot, N8N, Chatwoot (requer GO-API instalada)${NC}"
     echo -e "  ${ORANGE}[3]${NC} ${WHITE}VERIFICAR CERTIFICADOS SSL${NC}"
     echo -e "      ${GRAY}Verifica e instala certificados HTTPS${NC}"
     echo -e "  ${ORANGE}[4]${NC} ${WHITE}MUDAR LOGIN E SENHA${NC}"
@@ -62,18 +148,36 @@ show_menu() {
     echo -e "      ${GRAY}Visualiza logs dos serviços${NC}"
     echo -e "  ${ORANGE}[6]${NC} ${WHITE}REINICIAR SERVIÇOS${NC}"
     echo -e "      ${GRAY}Reinicia todos os containers${NC}"
-    echo -e "  ${RED}[7]${NC} ${WHITE}RESETAR SISTEMA${NC}"
+    echo -e "  ${ORANGE}[7]${NC} ${WHITE}STATUS DOS SERVIÇOS${NC}"
+    echo -e "      ${GRAY}Mostra status e portas de todos os serviços${NC}"
+    echo -e "  ${RED}[8]${NC} ${WHITE}RESETAR SISTEMA${NC}"
     echo -e "      ${GRAY}Remove tudo e permite reinstalar do zero${NC}"
     echo -e "  ${ORANGE}[0]${NC} ${WHITE}SAIR${NC}"
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}Contribua com nosso time para que possamos cada vez mais crescer${NC}"
-    echo -e "${WHITE}e manter nossa API atualizada para você utilizar.${NC}"
-    echo -e "${ORANGE}Para contribuir: ${AMBER}https://usego.com.br/members/payments${NC}"
+    echo -e "${WHITE}Contribua: ${AMBER}https://usego.com.br/members/payments${NC}"
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo ""
 }
 
-# Função para verificar se é root
+# Função para menu de ferramentas extras
+show_extras_menu() {
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${ORANGE}              FERRAMENTAS EXTRAS${NC}"
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "  ${ORANGE}[1]${NC} ${WHITE}INSTALAR TYPEBOT${NC}"
+    echo -e "      ${GRAY}Chatbot builder visual - typebot.io${NC}"
+    echo -e "  ${ORANGE}[2]${NC} ${WHITE}INSTALAR N8N${NC}"
+    echo -e "      ${GRAY}Automação de workflows - n8n.io${NC}"
+    echo -e "  ${ORANGE}[3]${NC} ${WHITE}INSTALAR CHATWOOT${NC}"
+    echo -e "      ${GRAY}Atendimento ao cliente - chatwoot.com${NC}"
+    echo -e "  ${ORANGE}[4]${NC} ${WHITE}INSTALAR TODOS${NC}"
+    echo -e "      ${GRAY}Instala Typebot + N8N + Chatwoot${NC}"
+    echo -e "  ${ORANGE}[0]${NC} ${WHITE}VOLTAR${NC}"
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+}
+
+# Funções de utilidade
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         echo -e "${RED}❌ Este script precisa ser executado como root!${NC}"
@@ -82,122 +186,48 @@ check_root() {
     fi
 }
 
-# Função para verificar se está rodando via pipe
-check_pipe() {
-    if [ ! -t 0 ]; then
-        echo -e "${RED}❌ ERRO: Não execute via pipe (curl | bash)${NC}"
-        echo ""
-        echo -e "${YELLOW}Execute assim:${NC}"
-        echo -e "  ${WHITE}curl -fsSL https://raw.githubusercontent.com/othonrighettirr/gofree/main/install.sh -o install.sh${NC}"
-        echo -e "  ${WHITE}sudo bash install.sh${NC}"
-        echo ""
-        exit 1
-    fi
-}
-
-# Função para mostrar progresso
 show_progress() {
-    local message=$1
-    echo -e "${AMBER}⏳ ${message}...${NC}"
+    echo -e "${AMBER}⏳ $1...${NC}"
 }
 
-# Função para mostrar sucesso
 show_success() {
-    local message=$1
-    echo -e "${GREEN}✅ ${message}${NC}"
+    echo -e "${GREEN}✅ $1${NC}"
 }
 
-# Função para mostrar erro
 show_error() {
-    local message=$1
-    echo -e "${RED}❌ ${message}${NC}"
+    echo -e "${RED}❌ $1${NC}"
 }
 
-# Função para mostrar info
 show_info() {
-    local message=$1
-    echo -e "${ORANGE}ℹ️  ${message}${NC}"
+    echo -e "${ORANGE}ℹ️  $1${NC}"
 }
 
-# Função para mostrar barra de progresso (porcentagem abaixo)
-show_progress_bar() {
-    local current=$1
-    local total=$2
-    local message=$3
-    local percent=$((current * 100 / total))
-    local filled=$((percent / 2))
-    local empty=$((50 - filled))
-    
-    # Criar barra
-    local bar=""
-    for ((i=0; i<filled; i++)); do bar+="█"; done
-    for ((i=0; i<empty; i++)); do bar+="░"; done
-    
-    # Mostrar barra com porcentagem e mensagem ABAIXO
-    echo -e "${AMBER}[${ORANGE}${bar}${AMBER}]${NC}"
-    echo -e "${WHITE}${percent}%${NC} ${GRAY}${message}${NC}"
-}
-
-# Função para finalizar barra de progresso
-finish_progress_bar() {
-    echo ""
-}
-
-# Função para spinner animado durante operações longas
-show_spinner() {
-    local pid=$1
-    local message=$2
-    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    
-    while kill -0 $pid 2>/dev/null; do
-        for ((i=0; i<${#spinstr}; i++)); do
-            printf "\r${AMBER}${spinstr:$i:1} ${WHITE}%s${NC}   " "$message"
-            sleep 0.1
-        done
-    done
-    printf "\r"
-}
-
-# Função para pausar
 pause() {
     echo ""
     read -p "Pressione ENTER para continuar..."
 }
 
-# Função para detectar versão do sistema
+# Função para detectar e atualizar sistema
 detect_system() {
-    show_progress "Detectando sistema operacional"
-    
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         OS=$NAME
         VER=$VERSION_ID
-        show_success "Sistema detectado: $OS $VER"
     else
         show_error "Sistema operacional não suportado"
         exit 1
     fi
 }
 
-# Função para atualizar sistema
 update_system() {
-    show_progress "Atualizando lista de pacotes"
     apt-get update -qq
-    show_success "Lista de pacotes atualizada"
-    
-    show_progress "Atualizando pacotes do sistema"
     apt-get upgrade -y -qq
-    show_success "Pacotes atualizados"
 }
 
-# Função para instalar dependências
 install_dependencies() {
-    show_progress "Instalando dependências essenciais"
-    apt-get install -y -qq curl wget git openssl ca-certificates gnupg lsb-release
-    show_success "Dependências instaladas"
+    apt-get install -y -qq curl wget git openssl ca-certificates gnupg lsb-release net-tools
 }
 
-# Função para instalar Docker
 install_docker() {
     if command -v docker &> /dev/null; then
         DOCKER_VERSION=$(docker --version | cut -d ' ' -f3 | cut -d ',' -f1)
@@ -207,20 +237,16 @@ install_docker() {
         curl -fsSL https://get.docker.com | sh -s -- --quiet
         systemctl enable docker
         systemctl start docker
-        show_success "Docker instalado com sucesso"
+        show_success "Docker instalado"
     fi
     
-    # Verificar Docker Compose
     if docker compose version &> /dev/null; then
-        COMPOSE_VERSION=$(docker compose version --short)
-        show_success "Docker Compose disponível (versão $COMPOSE_VERSION)"
+        show_success "Docker Compose disponível"
     else
-        show_progress "Instalando Docker Compose plugin"
         apt-get install -y -qq docker-compose-plugin
         show_success "Docker Compose instalado"
     fi
 }
-
 
 # Função para coletar informações
 collect_info() {
@@ -230,25 +256,11 @@ collect_info() {
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo ""
     
-    # Domínio Frontend
     read -p "$(echo -e ${ORANGE}Domínio do FRONTEND ${GRAY}[ex: app.seusite.com]${NC}: )" FRONTEND_DOMAIN
-    
-    # Domínio API
     read -p "$(echo -e ${ORANGE}Domínio da API ${GRAY}[ex: api.seusite.com]${NC}: )" API_DOMAIN
-    
-    # Email
     read -p "$(echo -e ${ORANGE}Seu EMAIL ${GRAY}[para SSL e login]${NC}: )" USER_EMAIL
-    
-    # Senha
     read -p "$(echo -e ${ORANGE}SENHA do painel${NC}: )" ADMIN_PASSWORD
     
-    # License Key
-    read -p "$(echo -e ${ORANGE}LICENSE_KEY ${GRAY}[da usego.com.br]${NC}: )" LICENSE_KEY
-    
-    # Machine ID
-    read -p "$(echo -e ${ORANGE}MACHINE_ID${NC}: )" MACHINE_ID
-    
-    # Confirmar informações
     echo ""
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo -e "${ORANGE}           CONFIRME AS INFORMAÇÕES${NC}"
@@ -258,19 +270,16 @@ collect_info() {
     echo -e "  ${ORANGE}API:${NC}         https://$API_DOMAIN"
     echo -e "  ${ORANGE}Email:${NC}       $USER_EMAIL"
     echo -e "  ${ORANGE}Senha:${NC}       $ADMIN_PASSWORD"
-    echo -e "  ${ORANGE}License:${NC}     $LICENSE_KEY"
-    echo -e "  ${ORANGE}Machine ID:${NC}  $MACHINE_ID"
     echo ""
     
     read -p "$(echo -e ${AMBER}As informações estão corretas? ${WHITE}[S/n]${NC}: )" CONFIRM
     
     if [[ "$CONFIRM" =~ ^[Nn]$ ]]; then
-        echo -e "${ORANGE}Vamos preencher novamente...${NC}"
         collect_info
     fi
 }
 
-# Função para criar docker-compose
+# Função para criar docker-compose principal
 create_docker_compose() {
     show_progress "Criando configuração do Docker Compose"
     
@@ -278,81 +287,12 @@ create_docker_compose() {
     
     cat > $INSTALL_DIR/docker-compose.yml << ENDOFFILE
 services:
-  nginx:
-    image: nginx:alpine
-    container_name: goapi-nginx
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
-    depends_on:
-      - frontend
-      - api
-    networks:
-      - goapi-network
-
-  certbot:
-    image: certbot/certbot
-    container_name: goapi-certbot
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait \$\${!}; done;'"
-    networks:
-      - goapi-network
-
-  frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    container_name: goapi-frontend
-    restart: always
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - NEXT_PUBLIC_API_URL=https://$API_DOMAIN
-      - ADMIN_EMAIL=$USER_EMAIL
-      - ADMIN_PASSWORD=$ADMIN_PASSWORD
-    depends_on:
-      - api
-    networks:
-      - goapi-network
-
-  api:
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-    container_name: goapi-backend
-    restart: always
-    environment:
-      - PORT=3001
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://goapi:goapi_secret_2024@postgres:5432/goapi?schema=public
-      - JWT_SECRET=$JWT_SECRET
-      - JWT_EXPIRES_IN=3000000d
-      - CORS_ORIGIN=*
-      - ADMIN_EMAIL=$USER_EMAIL
-      - ADMIN_PASSWORD=$ADMIN_PASSWORD
-      - LICENSE_SERVER=https://usego.com.br
-      - LICENSE_KEY=$LICENSE_KEY
-      - MACHINE_ID=$MACHINE_ID
-    volumes:
-      - sessions_data:/app/sessions
-      - license_data:/app/license
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - goapi-network
-
   postgres:
     image: postgres:15-alpine
     container_name: goapi-postgres
     restart: always
+    ports:
+      - "${PORT_POSTGRES}:5432"
     environment:
       - POSTGRES_USER=goapi
       - POSTGRES_PASSWORD=goapi_secret_2024
@@ -367,10 +307,53 @@ services:
     networks:
       - goapi-network
 
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: goapi-backend
+    restart: always
+    ports:
+      - "${PORT_API}:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://goapi:goapi_secret_2024@postgres:5432/goapi?schema=public
+      - JWT_SECRET=$JWT_SECRET
+      - JWT_EXPIRES_IN=3000000d
+      - CORS_ORIGIN=*
+      - ADMIN_EMAIL=$USER_EMAIL
+      - ADMIN_PASSWORD=$ADMIN_PASSWORD
+    volumes:
+      - sessions_data:/app/sessions
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - goapi-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: goapi-frontend
+    restart: always
+    ports:
+      - "${PORT_FRONTEND}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=https://$API_DOMAIN
+      - ADMIN_EMAIL=$USER_EMAIL
+      - ADMIN_PASSWORD=$ADMIN_PASSWORD
+    depends_on:
+      - api
+    networks:
+      - goapi-network
+
 volumes:
   postgres_data:
   sessions_data:
-  license_data:
 
 networks:
   goapi-network:
@@ -380,221 +363,261 @@ ENDOFFILE
     show_success "Docker Compose configurado"
 }
 
-# Função para criar nginx.conf
-create_nginx_conf() {
-    show_progress "Criando configuração do Nginx"
-    
-    cat > $INSTALL_DIR/nginx.conf << 'ENDOFNGINX'
-events {
-    worker_connections 1024;
-}
-
-http {
-    client_max_body_size 50M;
-    
-    server {
-        listen 80;
-        server_name FRONTEND_DOMAIN_PLACEHOLDER API_DOMAIN_PLACEHOLDER;
-
-        location /.well-known/acme-challenge/ {
-            root /var/www/certbot;
-        }
-
-        location / {
-            return 301 https://$host$request_uri;
-        }
-    }
-
-    server {
-        listen 443 ssl;
-        server_name FRONTEND_DOMAIN_PLACEHOLDER;
-
-        ssl_certificate /etc/letsencrypt/live/FRONTEND_DOMAIN_PLACEHOLDER/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/FRONTEND_DOMAIN_PLACEHOLDER/privkey.pem;
-
-        location / {
-            proxy_pass http://goapi-frontend:3000;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection 'upgrade';
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_cache_bypass $http_upgrade;
-        }
-    }
-
-    server {
-        listen 443 ssl;
-        server_name API_DOMAIN_PLACEHOLDER;
-
-        ssl_certificate /etc/letsencrypt/live/API_DOMAIN_PLACEHOLDER/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/API_DOMAIN_PLACEHOLDER/privkey.pem;
-
-        location / {
-            proxy_pass http://goapi-backend:3001;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection 'upgrade';
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_cache_bypass $http_upgrade;
-        }
-    }
-}
-ENDOFNGINX
-
-    # Substituir placeholders
-    sed -i "s/FRONTEND_DOMAIN_PLACEHOLDER/$FRONTEND_DOMAIN/g" $INSTALL_DIR/nginx.conf
-    sed -i "s/API_DOMAIN_PLACEHOLDER/$API_DOMAIN/g" $INSTALL_DIR/nginx.conf
-    
-    show_success "Nginx configurado"
-}
-
-
-# Função para gerar certificados SSL
-generate_ssl() {
-    show_progress "Preparando geração de certificados SSL"
-    
-    # Limpar certificados antigos se existirem
-    rm -rf $INSTALL_DIR/certbot/conf/* 2>/dev/null
-    rm -rf $INSTALL_DIR/certbot/www/* 2>/dev/null
-    
-    mkdir -p $INSTALL_DIR/certbot/conf
-    mkdir -p $INSTALL_DIR/certbot/www/.well-known/acme-challenge
-    
-    # Criar arquivo de teste para verificar se o diretório está acessível
-    echo "test" > $INSTALL_DIR/certbot/www/.well-known/acme-challenge/test.txt
-    
-    # Parar qualquer container usando porta 80
-    docker stop nginx-ssl-temp 2>/dev/null || true
-    docker rm nginx-ssl-temp 2>/dev/null || true
-    
-    # Liberar porta 80 se estiver em uso
-    fuser -k 80/tcp 2>/dev/null || true
-    sleep 2
-    
-    # Criar arquivo de configuração nginx temporário
-    cat > /tmp/nginx-ssl.conf << 'NGINXTEMP'
-events {
-    worker_connections 1024;
-}
-http {
-    server {
-        listen 80 default_server;
-        server_name _;
-        
-        location /.well-known/acme-challenge/ {
-            root /var/www/certbot;
-            allow all;
-        }
-        
-        location / {
-            return 200 'GO-API SSL Setup OK';
-            add_header Content-Type text/plain;
-        }
-    }
-}
-NGINXTEMP
-
-    show_progress "Iniciando servidor temporário para validação"
-    
-    docker run -d --name nginx-ssl-temp \
-        -p 80:80 \
-        -v /tmp/nginx-ssl.conf:/etc/nginx/nginx.conf:ro \
-        -v $INSTALL_DIR/certbot/www:/var/www/certbot:ro \
-        nginx:alpine > /dev/null 2>&1
-    
-    # Aguardar nginx iniciar completamente
-    show_info "Aguardando servidor iniciar (15 segundos)..."
-    sleep 15
-    
-    # Verificar se nginx está rodando
-    if ! docker ps | grep -q nginx-ssl-temp; then
-        show_error "Nginx temporário não iniciou"
-        docker logs nginx-ssl-temp 2>/dev/null
-        return 1
-    fi
-    
-    # Testar se o servidor está respondendo
-    TEST_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null || echo "000")
-    if [ "$TEST_RESPONSE" != "200" ]; then
-        show_error "Servidor não está respondendo (código: $TEST_RESPONSE)"
-    else
-        show_success "Servidor temporário rodando"
-    fi
-    
-    # Gerar certificado para Frontend
+# Função para instalar Typebot
+install_typebot() {
+    show_banner
+    echo -e "${ORANGE}▶ INSTALANDO TYPEBOT${NC}"
     echo ""
-    show_progress "Gerando certificado SSL para $FRONTEND_DOMAIN"
     
-    docker run --rm \
-        -v $INSTALL_DIR/certbot/conf:/etc/letsencrypt \
-        -v $INSTALL_DIR/certbot/www:/var/www/certbot \
-        certbot/certbot certonly --webroot \
-        --webroot-path=/var/www/certbot \
-        -d $FRONTEND_DOMAIN \
-        --email $USER_EMAIL \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive \
-        --force-renewal
+    read -p "$(echo -e ${ORANGE}Domínio do Typebot Builder ${GRAY}[ex: typebot.seusite.com]${NC}: )" TYPEBOT_DOMAIN
+    read -p "$(echo -e ${ORANGE}Domínio do Typebot Viewer ${GRAY}[ex: bot.seusite.com]${NC}: )" TYPEBOT_VIEWER_DOMAIN
     
-    if [ $? -eq 0 ]; then
-        show_success "Certificado SSL do Frontend gerado"
-    else
-        show_error "Falha ao gerar certificado do Frontend"
-        show_info "Verifique se o domínio $FRONTEND_DOMAIN aponta para este servidor"
-    fi
+    # Encontrar portas livres
+    PORT_TYPEBOT=$(find_free_port 3002)
+    PORT_TYPEBOT_BUILDER=$(find_free_port $((PORT_TYPEBOT + 1)))
     
-    # Gerar certificado para API
+    show_info "Typebot Builder: porta $PORT_TYPEBOT_BUILDER"
+    show_info "Typebot Viewer: porta $PORT_TYPEBOT"
+    
+    TYPEBOT_SECRET=$(openssl rand -hex 32)
+    
+    cat >> $INSTALL_DIR/docker-compose.yml << ENDOFTYPEBOT
+
+  # ========================================
+  # TYPEBOT
+  # ========================================
+  typebot-builder:
+    image: baptistearno/typebot-builder:latest
+    container_name: goapi-typebot-builder
+    restart: always
+    ports:
+      - "${PORT_TYPEBOT_BUILDER}:3000"
+    environment:
+      - DATABASE_URL=postgresql://goapi:goapi_secret_2024@postgres:5432/typebot?schema=public
+      - NEXTAUTH_URL=https://${TYPEBOT_DOMAIN}
+      - NEXT_PUBLIC_VIEWER_URL=https://${TYPEBOT_VIEWER_DOMAIN}
+      - ENCRYPTION_SECRET=${TYPEBOT_SECRET}
+      - ADMIN_EMAIL=${USER_EMAIL}
+      - DISABLE_SIGNUP=false
+      - SMTP_HOST=
+      - SMTP_PORT=587
+      - SMTP_USERNAME=
+      - SMTP_PASSWORD=
+      - NEXT_PUBLIC_SMTP_FROM=
+    depends_on:
+      - postgres
+    networks:
+      - goapi-network
+
+  typebot-viewer:
+    image: baptistearno/typebot-viewer:latest
+    container_name: goapi-typebot-viewer
+    restart: always
+    ports:
+      - "${PORT_TYPEBOT}:3000"
+    environment:
+      - DATABASE_URL=postgresql://goapi:goapi_secret_2024@postgres:5432/typebot?schema=public
+      - NEXTAUTH_URL=https://${TYPEBOT_DOMAIN}
+      - NEXT_PUBLIC_VIEWER_URL=https://${TYPEBOT_VIEWER_DOMAIN}
+      - ENCRYPTION_SECRET=${TYPEBOT_SECRET}
+    depends_on:
+      - postgres
+    networks:
+      - goapi-network
+ENDOFTYPEBOT
+
+    # Criar banco do Typebot
+    show_progress "Criando banco de dados do Typebot"
+    docker compose exec -T postgres psql -U goapi -c "CREATE DATABASE typebot;" 2>/dev/null || true
+    
+    show_progress "Iniciando Typebot"
+    docker compose up -d typebot-builder typebot-viewer
+    
     echo ""
-    show_progress "Gerando certificado SSL para $API_DOMAIN"
+    show_success "Typebot instalado!"
+    echo -e "  ${ORANGE}Builder:${NC} https://${TYPEBOT_DOMAIN} (porta ${PORT_TYPEBOT_BUILDER})"
+    echo -e "  ${ORANGE}Viewer:${NC}  https://${TYPEBOT_VIEWER_DOMAIN} (porta ${PORT_TYPEBOT})"
+    echo ""
     
-    docker run --rm \
-        -v $INSTALL_DIR/certbot/conf:/etc/letsencrypt \
-        -v $INSTALL_DIR/certbot/www:/var/www/certbot \
-        certbot/certbot certonly --webroot \
-        --webroot-path=/var/www/certbot \
-        -d $API_DOMAIN \
-        --email $USER_EMAIL \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive \
-        --force-renewal
+    # Salvar configuração
+    echo "TYPEBOT_DOMAIN=$TYPEBOT_DOMAIN" >> $INSTALL_DIR/.env
+    echo "TYPEBOT_VIEWER_DOMAIN=$TYPEBOT_VIEWER_DOMAIN" >> $INSTALL_DIR/.env
+    echo "PORT_TYPEBOT=$PORT_TYPEBOT" >> $INSTALL_DIR/.env
+    echo "PORT_TYPEBOT_BUILDER=$PORT_TYPEBOT_BUILDER" >> $INSTALL_DIR/.env
+}
+
+# Função para instalar N8N
+install_n8n() {
+    show_banner
+    echo -e "${ORANGE}▶ INSTALANDO N8N${NC}"
+    echo ""
     
-    if [ $? -eq 0 ]; then
-        show_success "Certificado SSL da API gerado"
-    else
-        show_error "Falha ao gerar certificado da API"
-        show_info "Verifique se o domínio $API_DOMAIN aponta para este servidor"
-    fi
+    read -p "$(echo -e ${ORANGE}Domínio do N8N ${GRAY}[ex: n8n.seusite.com]${NC}: )" N8N_DOMAIN
     
-    # Parar nginx temporário
-    docker stop nginx-ssl-temp > /dev/null 2>&1
-    docker rm nginx-ssl-temp > /dev/null 2>&1
-    rm -f /tmp/nginx-ssl.conf
+    # Encontrar porta livre
+    PORT_N8N=$(find_free_port 5678)
     
-    # Verificar se os certificados foram criados e ajustar nginx.conf
-    if [ -d "$INSTALL_DIR/certbot/conf/live" ]; then
-        FRONTEND_CERT_DIR=$(ls -d $INSTALL_DIR/certbot/conf/live/$FRONTEND_DOMAIN* 2>/dev/null | head -1 | xargs basename 2>/dev/null)
-        API_CERT_DIR=$(ls -d $INSTALL_DIR/certbot/conf/live/$API_DOMAIN* 2>/dev/null | head -1 | xargs basename 2>/dev/null)
-        
-        if [ -n "$FRONTEND_CERT_DIR" ] && [ "$FRONTEND_CERT_DIR" != "$FRONTEND_DOMAIN" ]; then
-            sed -i "s|/etc/letsencrypt/live/$FRONTEND_DOMAIN/|/etc/letsencrypt/live/$FRONTEND_CERT_DIR/|g" $INSTALL_DIR/nginx.conf
-        fi
-        
-        if [ -n "$API_CERT_DIR" ] && [ "$API_CERT_DIR" != "$API_DOMAIN" ]; then
-            sed -i "s|/etc/letsencrypt/live/$API_DOMAIN/|/etc/letsencrypt/live/$API_CERT_DIR/|g" $INSTALL_DIR/nginx.conf
-        fi
-        
-        show_success "Certificados SSL configurados"
-    else
-        show_error "Certificados não gerados. Use opção 3 do menu depois."
-    fi
+    show_info "N8N: porta $PORT_N8N"
+    
+    N8N_ENCRYPTION_KEY=$(openssl rand -hex 16)
+    
+    cat >> $INSTALL_DIR/docker-compose.yml << ENDOFN8N
+
+  # ========================================
+  # N8N
+  # ========================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: goapi-n8n
+    restart: always
+    ports:
+      - "${PORT_N8N}:5678"
+    environment:
+      - N8N_HOST=${N8N_DOMAIN}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${N8N_DOMAIN}/
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=goapi
+      - DB_POSTGRESDB_PASSWORD=goapi_secret_2024
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+    networks:
+      - goapi-network
+
+volumes:
+  n8n_data:
+ENDOFN8N
+
+    # Criar banco do N8N
+    show_progress "Criando banco de dados do N8N"
+    docker compose exec -T postgres psql -U goapi -c "CREATE DATABASE n8n;" 2>/dev/null || true
+    
+    show_progress "Iniciando N8N"
+    docker compose up -d n8n
+    
+    echo ""
+    show_success "N8N instalado!"
+    echo -e "  ${ORANGE}URL:${NC} https://${N8N_DOMAIN} (porta ${PORT_N8N})"
+    echo ""
+    
+    # Salvar configuração
+    echo "N8N_DOMAIN=$N8N_DOMAIN" >> $INSTALL_DIR/.env
+    echo "PORT_N8N=$PORT_N8N" >> $INSTALL_DIR/.env
+}
+
+# Função para instalar Chatwoot
+install_chatwoot() {
+    show_banner
+    echo -e "${ORANGE}▶ INSTALANDO CHATWOOT${NC}"
+    echo ""
+    
+    read -p "$(echo -e ${ORANGE}Domínio do Chatwoot ${GRAY}[ex: chat.seusite.com]${NC}: )" CHATWOOT_DOMAIN
+    
+    # Encontrar portas livres
+    PORT_CHATWOOT=$(find_free_port 3004)
+    PORT_CHATWOOT_REDIS=$(find_free_port 6379)
+    
+    show_info "Chatwoot: porta $PORT_CHATWOOT"
+    show_info "Redis: porta $PORT_CHATWOOT_REDIS"
+    
+    CHATWOOT_SECRET=$(openssl rand -hex 32)
+    
+    cat >> $INSTALL_DIR/docker-compose.yml << ENDOFCHATWOOT
+
+  # ========================================
+  # CHATWOOT
+  # ========================================
+  chatwoot-redis:
+    image: redis:alpine
+    container_name: goapi-chatwoot-redis
+    restart: always
+    ports:
+      - "${PORT_CHATWOOT_REDIS}:6379"
+    volumes:
+      - chatwoot_redis_data:/data
+    networks:
+      - goapi-network
+
+  chatwoot-rails:
+    image: chatwoot/chatwoot:latest
+    container_name: goapi-chatwoot
+    restart: always
+    ports:
+      - "${PORT_CHATWOOT}:3000"
+    environment:
+      - RAILS_ENV=production
+      - RAILS_LOG_TO_STDOUT=true
+      - SECRET_KEY_BASE=${CHATWOOT_SECRET}
+      - FRONTEND_URL=https://${CHATWOOT_DOMAIN}
+      - DATABASE_URL=postgresql://goapi:goapi_secret_2024@postgres:5432/chatwoot?schema=public
+      - REDIS_URL=redis://chatwoot-redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USERNAME=goapi
+      - POSTGRES_PASSWORD=goapi_secret_2024
+      - POSTGRES_DATABASE=chatwoot
+      - ACTIVE_STORAGE_SERVICE=local
+    volumes:
+      - chatwoot_storage:/app/storage
+    depends_on:
+      - postgres
+      - chatwoot-redis
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    networks:
+      - goapi-network
+
+  chatwoot-sidekiq:
+    image: chatwoot/chatwoot:latest
+    container_name: goapi-chatwoot-sidekiq
+    restart: always
+    environment:
+      - RAILS_ENV=production
+      - SECRET_KEY_BASE=${CHATWOOT_SECRET}
+      - FRONTEND_URL=https://${CHATWOOT_DOMAIN}
+      - DATABASE_URL=postgresql://goapi:goapi_secret_2024@postgres:5432/chatwoot?schema=public
+      - REDIS_URL=redis://chatwoot-redis:6379
+    depends_on:
+      - postgres
+      - chatwoot-redis
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    networks:
+      - goapi-network
+
+volumes:
+  chatwoot_redis_data:
+  chatwoot_storage:
+ENDOFCHATWOOT
+
+    # Criar banco do Chatwoot
+    show_progress "Criando banco de dados do Chatwoot"
+    docker compose exec -T postgres psql -U goapi -c "CREATE DATABASE chatwoot;" 2>/dev/null || true
+    
+    show_progress "Iniciando Chatwoot (pode demorar alguns minutos)"
+    docker compose up -d chatwoot-redis chatwoot-rails chatwoot-sidekiq
+    
+    # Aguardar e rodar migrations
+    sleep 30
+    show_progress "Executando migrations do Chatwoot"
+    docker compose exec -T chatwoot-rails bundle exec rails db:chatwoot_prepare 2>/dev/null || true
+    
+    echo ""
+    show_success "Chatwoot instalado!"
+    echo -e "  ${ORANGE}URL:${NC} https://${CHATWOOT_DOMAIN} (porta ${PORT_CHATWOOT})"
+    echo -e "  ${GRAY}Crie sua conta de admin no primeiro acesso${NC}"
+    echo ""
+    
+    # Salvar configuração
+    echo "CHATWOOT_DOMAIN=$CHATWOOT_DOMAIN" >> $INSTALL_DIR/.env
+    echo "PORT_CHATWOOT=$PORT_CHATWOOT" >> $INSTALL_DIR/.env
 }
 
 # Função para clonar repositório
@@ -615,7 +638,6 @@ clone_repository() {
         show_success "Repositório clonado"
     fi
     
-    # Remover docker-compose existentes
     rm -f docker-compose*.yaml docker-compose*.yml 2>/dev/null
 }
 
@@ -623,19 +645,16 @@ clone_repository() {
 build_and_start() {
     cd $INSTALL_DIR
     
-    show_progress "Construindo imagens Docker (isso pode demorar alguns minutos)"
+    show_progress "Construindo imagens Docker (pode demorar alguns minutos)"
     docker compose build --quiet
     show_success "Imagens construídas"
     
-    # Primeiro, iniciar apenas o PostgreSQL
-    show_progress "Iniciando banco de dados PostgreSQL"
+    show_progress "Iniciando PostgreSQL"
     docker compose up -d postgres
     
-    # Aguardar PostgreSQL estar pronto
     show_progress "Aguardando PostgreSQL inicializar"
     sleep 10
     
-    # Verificar se PostgreSQL está rodando
     for i in {1..30}; do
         if docker compose exec -T postgres pg_isready -U goapi -d goapi > /dev/null 2>&1; then
             show_success "PostgreSQL pronto"
@@ -644,58 +663,173 @@ build_and_start() {
         sleep 2
     done
     
-    # Iniciar API
     show_progress "Iniciando API"
     docker compose up -d api
-    
-    # Aguardar API iniciar e criar tabelas
-    show_progress "Aguardando API criar tabelas e usuário admin"
     sleep 20
     
-    # Verificar se o admin foi criado
-    ADMIN_CHECK=$(docker compose logs api 2>/dev/null | grep -i "admin user")
-    if [ -n "$ADMIN_CHECK" ]; then
-        show_success "Usuário admin configurado"
-        echo -e "  ${BLUE}$ADMIN_CHECK${NC}"
-    fi
-    
-    # Iniciar Frontend
     show_progress "Iniciando Frontend"
     docker compose up -d frontend
     sleep 5
     
-    # Iniciar Nginx
-    show_progress "Iniciando Nginx"
-    docker compose up -d nginx certbot
-    sleep 3
-    
-    # Verificar status final
+    show_success "Serviços iniciados"
+}
+
+# Função para mostrar status
+show_status() {
+    show_banner
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${ORANGE}                    STATUS DOS SERVIÇOS${NC}"
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    show_progress "Verificando status dos serviços"
     
-    if docker compose ps | grep -q "goapi-backend.*Up"; then
-        show_success "API rodando"
-    else
-        show_error "API pode ter problemas, verifique os logs"
+    cd $INSTALL_DIR 2>/dev/null || { show_error "GO-API não instalada"; pause; return; }
+    
+    docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || docker compose ps
+    
+    echo ""
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    
+    # Mostrar URLs se existir .env
+    if [ -f "$INSTALL_DIR/.env" ]; then
+        echo ""
+        echo -e "${ORANGE}URLs Configuradas:${NC}"
+        source $INSTALL_DIR/.env 2>/dev/null
+        [ -n "$FRONTEND_DOMAIN" ] && echo -e "  ${WHITE}Frontend:${NC} https://$FRONTEND_DOMAIN"
+        [ -n "$API_DOMAIN" ] && echo -e "  ${WHITE}API:${NC} https://$API_DOMAIN"
+        [ -n "$TYPEBOT_DOMAIN" ] && echo -e "  ${WHITE}Typebot:${NC} https://$TYPEBOT_DOMAIN"
+        [ -n "$N8N_DOMAIN" ] && echo -e "  ${WHITE}N8N:${NC} https://$N8N_DOMAIN"
+        [ -n "$CHATWOOT_DOMAIN" ] && echo -e "  ${WHITE}Chatwoot:${NC} https://$CHATWOOT_DOMAIN"
     fi
     
-    if docker compose ps | grep -q "goapi-frontend.*Up"; then
-        show_success "Frontend rodando"
+    pause
+}
+
+# Função para ver logs
+view_logs() {
+    show_banner
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${ORANGE}                    LOGS DOS SERVIÇOS${NC}"
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "  ${ORANGE}[1]${NC} API"
+    echo -e "  ${ORANGE}[2]${NC} Frontend"
+    echo -e "  ${ORANGE}[3]${NC} PostgreSQL"
+    echo -e "  ${ORANGE}[4]${NC} Typebot"
+    echo -e "  ${ORANGE}[5]${NC} N8N"
+    echo -e "  ${ORANGE}[6]${NC} Chatwoot"
+    echo -e "  ${ORANGE}[7]${NC} Todos"
+    echo -e "  ${ORANGE}[0]${NC} Voltar"
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    read -p "$(echo -e ${ORANGE}Escolha: ${NC})" LOG_CHOICE
+    
+    cd $INSTALL_DIR 2>/dev/null || { show_error "GO-API não instalada"; pause; return; }
+    
+    case $LOG_CHOICE in
+        1) docker compose logs -f --tail=100 api ;;
+        2) docker compose logs -f --tail=100 frontend ;;
+        3) docker compose logs -f --tail=100 postgres ;;
+        4) docker compose logs -f --tail=100 typebot-builder typebot-viewer 2>/dev/null || show_error "Typebot não instalado" ;;
+        5) docker compose logs -f --tail=100 n8n 2>/dev/null || show_error "N8N não instalado" ;;
+        6) docker compose logs -f --tail=100 chatwoot-rails 2>/dev/null || show_error "Chatwoot não instalado" ;;
+        7) docker compose logs -f --tail=100 ;;
+        0) return ;;
+    esac
+    
+    pause
+}
+
+# Função para reiniciar serviços
+restart_services() {
+    show_banner
+    echo -e "${ORANGE}▶ REINICIANDO SERVIÇOS${NC}"
+    echo ""
+    
+    cd $INSTALL_DIR 2>/dev/null || { show_error "GO-API não instalada"; pause; return; }
+    
+    show_progress "Parando serviços"
+    docker compose down
+    
+    show_progress "Iniciando serviços"
+    docker compose up -d
+    
+    show_success "Serviços reiniciados"
+    pause
+}
+
+# Função para mudar credenciais
+change_credentials() {
+    show_banner
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${ORANGE}           ALTERAR CREDENCIAIS${NC}"
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    read -p "$(echo -e ${ORANGE}Novo EMAIL: ${NC})" NEW_EMAIL
+    read -p "$(echo -e ${ORANGE}Nova SENHA: ${NC})" NEW_PASSWORD
+    
+    cd $INSTALL_DIR 2>/dev/null || { show_error "GO-API não instalada"; pause; return; }
+    
+    show_progress "Gerando hash da senha"
+    
+    PASSWORD_HASH=$(docker compose exec -T api node -e "
+const bcrypt = require('bcryptjs');
+const hash = bcrypt.hashSync('$NEW_PASSWORD', 10);
+console.log(hash);
+" 2>/dev/null | tr -d '\r\n')
+    
+    if [ -n "$PASSWORD_HASH" ]; then
+        show_progress "Atualizando credenciais"
+        
+        docker compose exec -T postgres psql -U goapi -d goapi -c "
+            UPDATE \"User\" SET email = '$NEW_EMAIL', password = '$PASSWORD_HASH' WHERE role = 'ADMIN';
+        " > /dev/null 2>&1
+        
+        show_success "Credenciais atualizadas!"
+        echo -e "  ${ORANGE}Email:${NC} $NEW_EMAIL"
+        echo -e "  ${ORANGE}Senha:${NC} $NEW_PASSWORD"
     else
-        show_error "Frontend pode ter problemas, verifique os logs"
+        show_error "Erro ao gerar hash da senha"
     fi
     
-    if docker compose ps | grep -q "goapi-nginx.*Up"; then
-        show_success "Nginx rodando"
+    pause
+}
+
+# Função para resetar sistema
+reset_system() {
+    show_banner
+    echo -e "${RED}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${RED}                    ⚠️  ATENÇÃO ⚠️${NC}"
+    echo -e "${RED}═══════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${WHITE}Esta ação irá:${NC}"
+    echo -e "  ${RED}•${NC} Parar todos os containers"
+    echo -e "  ${RED}•${NC} Remover todos os volumes (dados)"
+    echo -e "  ${RED}•${NC} Remover todas as imagens"
+    echo -e "  ${RED}•${NC} Apagar diretório de instalação"
+    echo ""
+    echo -e "${RED}TODOS OS DADOS SERÃO PERDIDOS!${NC}"
+    echo ""
+    
+    read -p "$(echo -e ${RED}Digite 'RESETAR' para confirmar: ${NC})" CONFIRM_RESET
+    
+    if [ "$CONFIRM_RESET" = "RESETAR" ]; then
+        show_progress "Parando containers"
+        cd $INSTALL_DIR 2>/dev/null && docker compose down -v --remove-orphans
+        
+        show_progress "Removendo imagens"
+        docker system prune -af --volumes 2>/dev/null
+        
+        show_progress "Removendo diretório"
+        rm -rf $INSTALL_DIR
+        
+        show_success "Sistema resetado!"
+        echo -e "${ORANGE}Execute o instalador novamente para reinstalar.${NC}"
     else
-        show_error "Nginx pode ter problemas, verifique os logs"
+        show_info "Operação cancelada"
     fi
     
-    if docker compose ps | grep -q "goapi-postgres.*Up"; then
-        show_success "PostgreSQL rodando"
-    else
-        show_error "PostgreSQL pode ter problemas"
-    fi
+    pause
 }
 
 # Função principal de instalação
@@ -707,15 +841,13 @@ do_install() {
     echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     echo ""
     
-    # ============================================
-    # ETAPA 1: PREPARAÇÃO DO SISTEMA
-    # ============================================
-    echo -e "${ORANGE}▶ ETAPA 1/5: Preparando sistema...${NC}"
+    # ETAPA 1: PREPARAÇÃO
+    echo -e "${ORANGE}▶ ETAPA 1/4: Preparando sistema...${NC}"
     echo ""
     
-    show_progress "Detectando sistema operacional"
-    detect_system > /dev/null 2>&1
-    show_success "Sistema detectado"
+    show_progress "Detectando sistema"
+    detect_system
+    show_success "Sistema: $OS $VER"
     
     show_progress "Atualizando pacotes"
     update_system > /dev/null 2>&1
@@ -726,970 +858,184 @@ do_install() {
     show_success "Dependências instaladas"
     
     show_progress "Configurando Docker"
-    install_docker > /dev/null 2>&1
-    show_success "Docker configurado"
+    install_docker
     
     echo ""
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}                    ETAPA 1 CONCLUÍDA - 20%${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}✓ ETAPA 1 CONCLUÍDA${NC}"
     sleep 2
+    
+    # ETAPA 2: CONFIGURAÇÃO
     clear_screen
     show_banner
-    
-    # ============================================
-    # ETAPA 2: COLETA DE INFORMAÇÕES
-    # ============================================
-    echo -e "${ORANGE}▶ ETAPA 2/5: Configuração...${NC}"
+    echo -e "${ORANGE}▶ ETAPA 2/4: Configuração...${NC}"
     collect_info
     
-    echo ""
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}                    ETAPA 2 CONCLUÍDA - 40%${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    sleep 2
-    clear_screen
-    show_banner
+    # Configurar portas
+    setup_ports
     
-    # ============================================
+    echo ""
+    echo -e "${GREEN}✓ ETAPA 2 CONCLUÍDA${NC}"
+    sleep 2
+    
     # ETAPA 3: DOWNLOAD E CONFIGURAÇÃO
-    # ============================================
-    echo -e "${ORANGE}▶ ETAPA 3/5: Baixando e configurando...${NC}"
-    echo ""
-    
-    show_progress "Clonando repositório GO-API"
-    clone_repository > /dev/null 2>&1
-    show_success "Repositório clonado"
-    
-    show_progress "Criando docker-compose.yml"
-    create_docker_compose > /dev/null 2>&1
-    show_success "Docker Compose criado"
-    
-    show_progress "Criando nginx.conf"
-    create_nginx_conf > /dev/null 2>&1
-    show_success "Nginx configurado"
-    
-    echo ""
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}                    ETAPA 3 CONCLUÍDA - 60%${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    sleep 2
     clear_screen
     show_banner
-    
-    # ============================================
-    # ETAPA 4: SSL E BUILD
-    # ============================================
-    echo -e "${ORANGE}▶ ETAPA 4/5: Certificados SSL e Build...${NC}"
+    echo -e "${ORANGE}▶ ETAPA 3/4: Baixando e configurando...${NC}"
     echo ""
     
-    generate_ssl
+    clone_repository
+    create_docker_compose
+    
+    # Salvar configuração
+    cat > $INSTALL_DIR/.env << ENVFILE
+FRONTEND_DOMAIN=$FRONTEND_DOMAIN
+API_DOMAIN=$API_DOMAIN
+USER_EMAIL=$USER_EMAIL
+PORT_FRONTEND=$PORT_FRONTEND
+PORT_API=$PORT_API
+PORT_POSTGRES=$PORT_POSTGRES
+ENVFILE
     
     echo ""
-    show_progress "Construindo imagens Docker (2-5 minutos)"
-    cd $INSTALL_DIR
-    docker compose build --quiet > /dev/null 2>&1
-    show_success "Imagens construídas"
-    
-    echo ""
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}                    ETAPA 4 CONCLUÍDA - 80%${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}✓ ETAPA 3 CONCLUÍDA${NC}"
     sleep 2
+    
+    # ETAPA 4: BUILD E INICIALIZAÇÃO
     clear_screen
     show_banner
-    
-    # ============================================
-    # ETAPA 5: INICIALIZAÇÃO DOS SERVIÇOS
-    # ============================================
-    echo -e "${ORANGE}▶ ETAPA 5/5: Iniciando serviços...${NC}"
+    echo -e "${ORANGE}▶ ETAPA 4/4: Construindo e iniciando...${NC}"
     echo ""
     
-    cd $INSTALL_DIR
+    build_and_start
     
-    # PostgreSQL
-    show_progress "Iniciando PostgreSQL"
-    docker compose up -d postgres > /dev/null 2>&1
-    
-    echo -e "${GRAY}   Aguardando healthcheck...${NC}"
-    for i in {1..30}; do
-        if docker compose exec -T postgres pg_isready -U goapi -d goapi > /dev/null 2>&1; then
-            break
-        fi
-        sleep 2
-    done
-    show_success "PostgreSQL pronto"
-    
-    # API
-    show_progress "Iniciando API"
-    docker compose up -d api > /dev/null 2>&1
-    echo -e "${GRAY}   Aguardando API criar tabelas (30s)...${NC}"
-    sleep 30
-    show_success "API iniciada"
-    
-    # Frontend
-    show_progress "Iniciando Frontend"
-    docker compose up -d frontend > /dev/null 2>&1
-    sleep 5
-    show_success "Frontend iniciado"
-    
-    # Nginx
-    show_progress "Iniciando Nginx"
-    docker compose up -d nginx certbot > /dev/null 2>&1
-    sleep 3
-    show_success "Nginx iniciado"
-    
-    # ============================================
-    # CRIAR ADMIN NO BANCO DE DADOS
-    # ============================================
+    # Criar admin
     echo ""
-    echo -e "${ORANGE}▶ Configurando usuário administrador...${NC}"
-    echo ""
-    
-    # Aguardar mais um pouco para garantir que as tabelas foram criadas
-    sleep 5
-    
-    # Verificar se tabela User existe
-    TABLE_EXISTS=$(docker compose exec -T postgres psql -U goapi -d goapi -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'User');" 2>/dev/null | tr -d ' ')
-    
-    if [ "$TABLE_EXISTS" != "t" ]; then
-        show_info "Aguardando criação das tabelas..."
-        sleep 15
-    fi
-    
-    # Gerar hash da senha usando bcrypt
-    show_progress "Gerando hash da senha"
-    
-    # Escapar caracteres especiais na senha para o Node.js
-    ESCAPED_PASSWORD=$(echo "$ADMIN_PASSWORD" | sed "s/'/\\\\'/g" | sed 's/"/\\"/g')
+    show_progress "Configurando usuário administrador"
+    sleep 10
     
     PASSWORD_HASH=$(docker compose exec -T api node -e "
 const bcrypt = require('bcryptjs');
-const hash = bcrypt.hashSync('$ESCAPED_PASSWORD', 10);
-console.log(hash);
+console.log(bcrypt.hashSync('$ADMIN_PASSWORD', 10));
 " 2>/dev/null | tr -d '\r\n')
-    
-    if [ -z "$PASSWORD_HASH" ]; then
-        show_error "Falha ao gerar hash - tentando método alternativo"
-        PASSWORD_HASH=$(docker compose exec -T api node -e "const b=require('bcryptjs');console.log(b.hashSync(process.argv[1],10));" "$ADMIN_PASSWORD" 2>/dev/null | tr -d '\r\n')
-    fi
     
     if [ -n "$PASSWORD_HASH" ]; then
-        show_success "Hash gerado"
-        
-        # Verificar se admin já existe
-        ADMIN_EXISTS=$(docker compose exec -T postgres psql -U goapi -d goapi -t -c "SELECT COUNT(*) FROM \"User\" WHERE email = '$USER_EMAIL';" 2>/dev/null | tr -d ' \r\n')
-        
-        if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
-            show_progress "Criando usuário admin"
-            
-            # Inserir admin
-            docker compose exec -T postgres psql -U goapi -d goapi -c "
-                INSERT INTO \"User\" (id, email, password, role, \"createdAt\", \"updatedAt\") 
-                VALUES (gen_random_uuid(), '$USER_EMAIL', '$PASSWORD_HASH', 'ADMIN', NOW(), NOW())
-                ON CONFLICT (email) DO UPDATE SET password = '$PASSWORD_HASH', role = 'ADMIN';
-            " > /dev/null 2>&1
-            
-            # Verificar se foi criado
-            VERIFY=$(docker compose exec -T postgres psql -U goapi -d goapi -t -c "SELECT email FROM \"User\" WHERE email = '$USER_EMAIL' AND role = 'ADMIN';" 2>/dev/null | tr -d ' \r\n')
-            
-            if [ "$VERIFY" = "$USER_EMAIL" ]; then
-                show_success "Usuário admin criado com sucesso!"
-            else
-                show_error "Erro ao criar admin - use opção 4 do menu para criar manualmente"
-            fi
-        else
-            show_progress "Atualizando senha do admin existente"
-            docker compose exec -T postgres psql -U goapi -d goapi -c "UPDATE \"User\" SET password = '$PASSWORD_HASH' WHERE email = '$USER_EMAIL';" > /dev/null 2>&1
-            show_success "Senha do admin atualizada"
-        fi
-    else
-        show_error "Não foi possível gerar hash da senha"
-        show_info "Use a opção 4 do menu para configurar as credenciais"
+        docker compose exec -T postgres psql -U goapi -d goapi -c "
+            INSERT INTO \"User\" (id, email, password, role, \"createdAt\") 
+            VALUES (gen_random_uuid(), '$USER_EMAIL', '$PASSWORD_HASH', 'ADMIN', NOW())
+            ON CONFLICT (email) DO UPDATE SET password = '$PASSWORD_HASH', role = 'ADMIN';
+        " > /dev/null 2>&1
+        show_success "Usuário admin criado"
     fi
     
-    echo ""
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}                    ETAPA 5 CONCLUÍDA - 100%${NC}"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    sleep 2
+    # FINALIZAÇÃO
     clear_screen
     show_banner
-    
-    # ============================================
-    # VERIFICAÇÃO COMPLETA DO SISTEMA
-    # ============================================
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           🔍 VERIFICAÇÃO DO SISTEMA${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    TESTS_PASSED=0
-    TESTS_FAILED=0
-    
-    # Teste 1: Verificar se containers estão rodando
-    echo -e "${ORANGE}▶ Verificando containers...${NC}"
-    
-    if docker compose ps | grep -q "goapi-postgres.*Up"; then
-        echo -e "  ${GREEN}✅ PostgreSQL:${NC} Rodando"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        echo -e "  ${RED}❌ PostgreSQL:${NC} Não está rodando"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    
-    if docker compose ps | grep -q "goapi-backend.*Up"; then
-        echo -e "  ${GREEN}✅ API:${NC} Rodando"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        echo -e "  ${RED}❌ API:${NC} Não está rodando"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    
-    if docker compose ps | grep -q "goapi-frontend.*Up"; then
-        echo -e "  ${GREEN}✅ Frontend:${NC} Rodando"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        echo -e "  ${RED}❌ Frontend:${NC} Não está rodando"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    
-    if docker compose ps | grep -q "goapi-nginx.*Up"; then
-        echo -e "  ${GREEN}✅ Nginx:${NC} Rodando"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        echo -e "  ${RED}❌ Nginx:${NC} Não está rodando"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    
-    echo ""
-    
-    # Teste 2: Verificar admin no banco de dados
-    echo -e "${ORANGE}▶ Verificando usuário admin no banco...${NC}"
-    
-    ADMIN_DB=$(docker compose exec -T postgres psql -U goapi -d goapi -t -c "SELECT email, role FROM \"User\" WHERE role = 'ADMIN' LIMIT 1;" 2>/dev/null | tr -d ' \r\n')
-    
-    if [ -n "$ADMIN_DB" ]; then
-        echo -e "  ${GREEN}✅ Admin encontrado:${NC} $USER_EMAIL"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-        
-        # Verificar se o hash da senha está correto
-        STORED_HASH=$(docker compose exec -T postgres psql -U goapi -d goapi -t -c "SELECT password FROM \"User\" WHERE email = '$USER_EMAIL';" 2>/dev/null | tr -d ' \r\n')
-        
-        if [ -n "$STORED_HASH" ] && [ ${#STORED_HASH} -gt 50 ]; then
-            echo -e "  ${GREEN}✅ Hash da senha:${NC} Configurado (${#STORED_HASH} caracteres)"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            echo -e "  ${RED}❌ Hash da senha:${NC} Inválido ou não encontrado"
-            TESTS_FAILED=$((TESTS_FAILED + 1))
-        fi
-    else
-        echo -e "  ${RED}❌ Admin não encontrado no banco${NC}"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    fi
-    
-    echo ""
-    
-    # Teste 3: Verificar comunicação API
-    echo -e "${ORANGE}▶ Verificando comunicação da API...${NC}"
-    
-    # Testar API internamente
-    API_HEALTH=$(docker compose exec -T api wget -q -O - http://localhost:3001/health 2>/dev/null || docker compose exec -T api curl -s http://localhost:3001/health 2>/dev/null || echo "")
-    
-    if [ -n "$API_HEALTH" ]; then
-        echo -e "  ${GREEN}✅ API Health:${NC} Respondendo"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        # Tentar endpoint alternativo
-        API_TEST=$(docker compose exec -T nginx wget -q -O - http://goapi-backend:3001/ 2>/dev/null || echo "")
-        if [ -n "$API_TEST" ]; then
-            echo -e "  ${GREEN}✅ API:${NC} Acessível via Nginx"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            echo -e "  ${YELLOW}⚠️  API Health:${NC} Endpoint /health não disponível (normal)"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        fi
-    fi
-    
-    # Teste 4: Verificar comunicação Frontend -> API
-    echo -e "${ORANGE}▶ Verificando comunicação Frontend → API...${NC}"
-    
-    FRONTEND_ENV=$(docker compose exec -T frontend printenv NEXT_PUBLIC_API_URL 2>/dev/null | tr -d '\r\n')
-    
-    if [ "$FRONTEND_ENV" = "https://$API_DOMAIN" ]; then
-        echo -e "  ${GREEN}✅ Frontend API URL:${NC} https://$API_DOMAIN"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        echo -e "  ${YELLOW}⚠️  Frontend API URL:${NC} $FRONTEND_ENV"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    fi
-    
-    echo ""
-    
-    # Teste 5: Testar login na API
-    echo -e "${ORANGE}▶ Testando autenticação na API...${NC}"
-    
-    # Fazer login de teste
-    LOGIN_RESPONSE=$(docker compose exec -T api node -e "
-const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-
-async function testLogin() {
-    try {
-        const user = await prisma.user.findUnique({ where: { email: '$USER_EMAIL' } });
-        if (!user) {
-            console.log('USER_NOT_FOUND');
-            return;
-        }
-        const valid = bcrypt.compareSync('$ESCAPED_PASSWORD', user.password);
-        if (valid) {
-            console.log('LOGIN_OK');
-        } else {
-            console.log('PASSWORD_INVALID');
-        }
-    } catch (e) {
-        console.log('ERROR:' + e.message);
-    } finally {
-        await prisma.\$disconnect();
-    }
-}
-testLogin();
-" 2>/dev/null | tr -d '\r\n')
-    
-    if [ "$LOGIN_RESPONSE" = "LOGIN_OK" ]; then
-        echo -e "  ${GREEN}✅ Autenticação:${NC} Login e senha funcionando!"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    elif [ "$LOGIN_RESPONSE" = "USER_NOT_FOUND" ]; then
-        echo -e "  ${RED}❌ Autenticação:${NC} Usuário não encontrado no banco"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    elif [ "$LOGIN_RESPONSE" = "PASSWORD_INVALID" ]; then
-        echo -e "  ${RED}❌ Autenticação:${NC} Senha incorreta no banco"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-    else
-        echo -e "  ${YELLOW}⚠️  Autenticação:${NC} Não foi possível testar (verifique manualmente)"
-    fi
-    
-    echo ""
-    
-    # Teste 6: Verificar SSL
-    echo -e "${ORANGE}▶ Verificando certificados SSL...${NC}"
-    
-    if [ -f "$INSTALL_DIR/certbot/conf/live/$FRONTEND_DOMAIN/fullchain.pem" ]; then
-        echo -e "  ${GREEN}✅ SSL Frontend:${NC} Certificado encontrado"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        FRONTEND_CERT_DIR=$(ls -d $INSTALL_DIR/certbot/conf/live/$FRONTEND_DOMAIN* 2>/dev/null | head -1)
-        if [ -n "$FRONTEND_CERT_DIR" ]; then
-            echo -e "  ${GREEN}✅ SSL Frontend:${NC} Certificado encontrado"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            echo -e "  ${YELLOW}⚠️  SSL Frontend:${NC} Certificado não encontrado"
-        fi
-    fi
-    
-    if [ -f "$INSTALL_DIR/certbot/conf/live/$API_DOMAIN/fullchain.pem" ]; then
-        echo -e "  ${GREEN}✅ SSL API:${NC} Certificado encontrado"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-    else
-        API_CERT_DIR=$(ls -d $INSTALL_DIR/certbot/conf/live/$API_DOMAIN* 2>/dev/null | head -1)
-        if [ -n "$API_CERT_DIR" ]; then
-            echo -e "  ${GREEN}✅ SSL API:${NC} Certificado encontrado"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-            echo -e "  ${YELLOW}⚠️  SSL API:${NC} Certificado não encontrado"
-        fi
-    fi
-    
-    echo ""
-    
-    # Resumo dos testes
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           📊 RESUMO DA VERIFICAÇÃO${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "  ${GREEN}✅ Testes OK:${NC}     $TESTS_PASSED"
-    echo -e "  ${RED}❌ Testes FALHA:${NC} $TESTS_FAILED"
-    echo ""
-    
-    if [ $TESTS_FAILED -eq 0 ]; then
-        echo -e "${GREEN}  🎉 TODOS OS TESTES PASSARAM! Sistema pronto para uso.${NC}"
-    elif [ $TESTS_FAILED -le 2 ]; then
-        echo -e "${YELLOW}  ⚠️  Alguns testes falharam, mas o sistema pode funcionar.${NC}"
-        echo -e "${YELLOW}     Verifique os itens marcados com ❌${NC}"
-    else
-        echo -e "${RED}  ❌ Vários testes falharam. Verifique os logs com opção [5]${NC}"
-    fi
-    
-    echo ""
-    sleep 3
-    clear_screen
-    show_banner
-    
-    # ============================================
-    # RESULTADO FINAL
-    # ============================================
     echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}           ✅ INSTALAÇÃO CONCLUÍDA!${NC}"
+    echo -e "${GREEN}              ✅ INSTALAÇÃO CONCLUÍDA COM SUCESSO!${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "  ${ORANGE}Frontend:${NC}  ${WHITE}https://$FRONTEND_DOMAIN${NC}"
-    echo -e "  ${ORANGE}API:${NC}       ${WHITE}https://$API_DOMAIN${NC}"
-    echo -e "  ${ORANGE}Swagger:${NC}   ${WHITE}https://$API_DOMAIN/docs${NC}"
+    echo -e "${WHITE}Acesse seu painel:${NC}"
+    echo -e "  ${ORANGE}Frontend:${NC} https://$FRONTEND_DOMAIN (porta $PORT_FRONTEND)"
+    echo -e "  ${ORANGE}API:${NC}      https://$API_DOMAIN (porta $PORT_API)"
     echo ""
-    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "  ${ORANGE}CREDENCIAIS DE ACESSO:${NC}"
-    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "  ${WHITE}Email:${NC}     ${CYAN}$USER_EMAIL${NC}"
-    echo -e "  ${WHITE}Senha:${NC}     ${CYAN}$ADMIN_PASSWORD${NC}"
+    echo -e "${WHITE}Credenciais:${NC}"
+    echo -e "  ${ORANGE}Email:${NC}    $USER_EMAIL"
+    echo -e "  ${ORANGE}Senha:${NC}    $ADMIN_PASSWORD"
     echo ""
-    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "  ${ORANGE}RESULTADO DOS TESTES:${NC}"
-    echo -e "  ${ORANGE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "  ${GREEN}✅ Passou:${NC} $TESTS_PASSED  ${RED}❌ Falhou:${NC} $TESTS_FAILED"
-    echo ""
-    
-    if [ $TESTS_FAILED -gt 0 ]; then
-        echo -e "${AMBER}Se o login não funcionar, use a opção [4] do menu para reconfigurar.${NC}"
-        echo ""
-    fi
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${WHITE}Configure seu proxy reverso (Nginx/Traefik) para as portas acima.${NC}"
+    echo -e "${WHITE}Use a opção 2 do menu para instalar Typebot, N8N ou Chatwoot.${NC}"
+    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
     
     pause
 }
 
-
-# Função para verificar licença
-do_check_license() {
-    show_banner
-    
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           VERIFICAÇÃO DE LICENÇA${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    if [ ! -d "$INSTALL_DIR" ]; then
-        show_error "GO-API não está instalada. Execute a instalação primeiro."
-        pause
-        return
-    fi
-    
-    cd $INSTALL_DIR
-    
-    show_progress "Verificando status da licença"
-    
-    # Verificar logs da API
-    LICENSE_STATUS=$(docker compose logs api 2>/dev/null | grep -i "license" | tail -5)
-    
-    if echo "$LICENSE_STATUS" | grep -qi "valid\|success\|ativad"; then
-        echo ""
-        show_success "Licença está ATIVA e válida!"
-        echo ""
-        echo -e "${CYAN}Últimos logs de licença:${NC}"
-        echo "$LICENSE_STATUS"
-    else
-        echo ""
-        show_error "Licença pode estar inválida ou não configurada"
-        echo ""
-        echo -e "${YELLOW}Deseja configurar/atualizar a licença? [S/n]${NC}"
-        read -p "" UPDATE_LICENSE
+# Menu de ferramentas extras
+do_extras_menu() {
+    while true; do
+        show_banner
+        show_extras_menu
         
-        if [[ ! "$UPDATE_LICENSE" =~ ^[Nn]$ ]]; then
-            echo ""
-            read -p "$(echo -e ${CYAN}Digite sua LICENSE_KEY${NC}: )" NEW_LICENSE_KEY
-            read -p "$(echo -e ${CYAN}Digite seu MACHINE_ID${NC}: )" NEW_MACHINE_ID
-            
-            # Atualizar docker-compose.yml
-            show_progress "Atualizando configuração de licença"
-            
-            sed -i "s/LICENSE_KEY=.*/LICENSE_KEY=$NEW_LICENSE_KEY/g" $INSTALL_DIR/docker-compose.yml
-            sed -i "s/MACHINE_ID=.*/MACHINE_ID=$NEW_MACHINE_ID/g" $INSTALL_DIR/docker-compose.yml
-            
-            show_success "Configuração atualizada"
-            
-            # Reiniciar API
-            show_progress "Reiniciando API para aplicar licença"
-            docker compose restart api
-            
-            sleep 10
-            
-            # Verificar novamente
-            LICENSE_CHECK=$(docker compose logs api --tail=20 2>/dev/null | grep -i "license")
-            
-            if echo "$LICENSE_CHECK" | grep -qi "valid\|success\|ativad"; then
-                echo ""
-                show_success "🎉 Licença ativada com sucesso!"
-            else
-                echo ""
-                show_info "Verifique os logs para mais detalhes:"
-                echo "$LICENSE_CHECK"
-            fi
-        fi
-    fi
-    
-    pause
+        read -p "$(echo -e ${ORANGE}Escolha uma opção: ${NC})" EXTRAS_CHOICE
+        
+        case $EXTRAS_CHOICE in
+            1)
+                install_typebot
+                pause
+                ;;
+            2)
+                install_n8n
+                pause
+                ;;
+            3)
+                install_chatwoot
+                pause
+                ;;
+            4)
+                install_typebot
+                install_n8n
+                install_chatwoot
+                pause
+                ;;
+            0)
+                break
+                ;;
+            *)
+                show_error "Opção inválida"
+                sleep 1
+                ;;
+        esac
+    done
 }
 
-# Função para verificar SSL
-do_check_ssl() {
-    show_banner
-    
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           VERIFICAÇÃO DE CERTIFICADOS SSL${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    if [ ! -d "$INSTALL_DIR" ]; then
-        show_error "GO-API não está instalada. Execute a instalação primeiro."
-        pause
-        return
-    fi
-    
-    cd $INSTALL_DIR
-    
-    show_progress "Verificando certificados SSL"
-    
-    # Listar certificados
-    if [ -d "$INSTALL_DIR/certbot/conf/live" ]; then
-        echo ""
-        echo -e "${CYAN}Certificados encontrados:${NC}"
-        echo ""
-        
-        for cert_dir in $INSTALL_DIR/certbot/conf/live/*/; do
-            if [ -d "$cert_dir" ]; then
-                cert_name=$(basename "$cert_dir")
-                if [ "$cert_name" != "README" ]; then
-                    if [ -f "$cert_dir/fullchain.pem" ]; then
-                        EXPIRY=$(openssl x509 -enddate -noout -in "$cert_dir/fullchain.pem" 2>/dev/null | cut -d= -f2)
-                        echo -e "  ${GREEN}✅ $cert_name${NC}"
-                        echo -e "     ${BLUE}Expira em: $EXPIRY${NC}"
-                    else
-                        echo -e "  ${RED}❌ $cert_name (certificado não encontrado)${NC}"
-                    fi
-                fi
-            fi
-        done
-    else
-        show_error "Nenhum certificado SSL encontrado"
-    fi
-    
-    echo ""
-    read -p "$(echo -e ${YELLOW}Deseja gerar/renovar certificados SSL? [s/N]${NC}: )" RENEW_SSL
-    
-    if [[ "$RENEW_SSL" =~ ^[Ss]$ ]]; then
-        echo ""
-        read -p "$(echo -e ${CYAN}Domínio do Frontend${NC}: )" FRONTEND_DOMAIN
-        read -p "$(echo -e ${CYAN}Domínio da API${NC}: )" API_DOMAIN
-        read -p "$(echo -e ${CYAN}Seu Email${NC}: )" USER_EMAIL
-        
-        # Parar nginx
-        docker compose stop nginx 2>/dev/null
-        
-        # Gerar certificados
-        generate_ssl
-        
-        # Reiniciar nginx
-        docker compose up -d nginx
-        
-        show_success "Certificados SSL atualizados!"
-    fi
-    
-    pause
-}
-
-# Função para mudar login e senha
-do_change_credentials() {
-    show_banner
-    
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           ALTERAR LOGIN E SENHA${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    if [ ! -d "$INSTALL_DIR" ]; then
-        show_error "GO-API não está instalada. Execute a instalação primeiro."
-        pause
-        return
-    fi
-    
-    cd $INSTALL_DIR
-    
-    echo -e "${ORANGE}Digite as novas credenciais:${NC}"
-    echo ""
-    
-    read -p "$(echo -e ${ORANGE}Novo EMAIL${NC}: )" NEW_EMAIL
-    read -p "$(echo -e ${ORANGE}Nova SENHA${NC}: )" NEW_PASSWORD
-    
-    echo ""
-    echo -e "${AMBER}Confirme as novas credenciais:${NC}"
-    echo -e "  Email: ${WHITE}$NEW_EMAIL${NC}"
-    echo -e "  Senha: ${WHITE}$NEW_PASSWORD${NC}"
-    echo ""
-    
-    read -p "$(echo -e ${AMBER}Confirma a alteração? [S/n]${NC}: )" CONFIRM_CHANGE
-    
-    if [[ ! "$CONFIRM_CHANGE" =~ ^[Nn]$ ]]; then
-        show_progress "Atualizando credenciais"
-        
-        # Atualizar docker-compose.yml (escapar caracteres especiais)
-        NEW_EMAIL_ESCAPED=$(printf '%s\n' "$NEW_EMAIL" | sed 's/[&/\]/\\&/g')
-        NEW_PASSWORD_ESCAPED=$(printf '%s\n' "$NEW_PASSWORD" | sed 's/[&/\]/\\&/g')
-        
-        sed -i "s/ADMIN_EMAIL=.*/ADMIN_EMAIL=$NEW_EMAIL_ESCAPED/g" $INSTALL_DIR/docker-compose.yml
-        sed -i "s/ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$NEW_PASSWORD_ESCAPED/g" $INSTALL_DIR/docker-compose.yml
-        
-        show_success "docker-compose.yml atualizado"
-        
-        # Gerar hash da senha
-        show_progress "Gerando hash da senha"
-        
-        # Escapar aspas simples para o Node.js
-        NEW_PASSWORD_NODE=$(printf '%s' "$NEW_PASSWORD" | sed "s/'/\\\\'/g")
-        
-        PASSWORD_HASH=$(docker compose exec -T api node -e "
-            const bcrypt = require('bcryptjs');
-            const hash = bcrypt.hashSync('$NEW_PASSWORD_NODE', 10);
-            console.log(hash);
-        " 2>/dev/null | tr -d '\r\n')
-        
-        if [ -n "$PASSWORD_HASH" ] && [ ${#PASSWORD_HASH} -gt 50 ]; then
-            show_success "Hash gerado: ${PASSWORD_HASH:0:20}..."
-            
-            # Deletar admin existente
-            show_progress "Removendo admin antigo"
-            docker compose exec -T postgres psql -U goapi -d goapi -c "DELETE FROM \"User\" WHERE role = 'ADMIN';" 2>/dev/null
-            
-            # Criar novo admin
-            show_progress "Criando novo admin no banco"
-            
-            # Escapar aspas simples para SQL
-            NEW_EMAIL_SQL=$(printf '%s' "$NEW_EMAIL" | sed "s/'/''/g")
-            PASSWORD_HASH_SQL=$(printf '%s' "$PASSWORD_HASH" | sed "s/'/''/g")
-            
-            RESULT=$(docker compose exec -T postgres psql -U goapi -d goapi -c "INSERT INTO \"User\" (id, email, password, role, \"createdAt\", \"updatedAt\") VALUES (gen_random_uuid(), '$NEW_EMAIL_SQL', '$PASSWORD_HASH_SQL', 'ADMIN', NOW(), NOW()) RETURNING email;" 2>&1)
-            
-            if echo "$RESULT" | grep -q "$NEW_EMAIL"; then
-                echo ""
-                show_success "✅ Credenciais atualizadas com sucesso!"
-                echo ""
-                echo -e "${GREEN}Novas credenciais de acesso:${NC}"
-                echo -e "  Email: ${WHITE}$NEW_EMAIL${NC}"
-                echo -e "  Senha: ${WHITE}$NEW_PASSWORD${NC}"
-            else
-                show_error "Erro ao inserir no banco: $RESULT"
-            fi
-        else
-            show_error "Não foi possível gerar hash da senha"
-            show_info "Tentando reiniciar API para criar admin automaticamente..."
-            
-            docker compose restart api
-            sleep 15
-            
-            API_LOG=$(docker compose logs api --tail=5 2>/dev/null | grep -i "admin")
-            echo -e "${GRAY}$API_LOG${NC}"
-        fi
-    else
-        show_info "Operação cancelada"
-    fi
-    
-    pause
-}
-
-# Função para ver logs
-do_view_logs() {
-    show_banner
-    
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           VISUALIZAR LOGS${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    if [ ! -d "$INSTALL_DIR" ]; then
-        show_error "GO-API não está instalada."
-        pause
-        return
-    fi
-    
-    cd $INSTALL_DIR
-    
-    echo -e "  ${ORANGE}[1]${NC} Logs da API"
-    echo -e "  ${ORANGE}[2]${NC} Logs do Frontend"
-    echo -e "  ${ORANGE}[3]${NC} Logs do Nginx"
-    echo -e "  ${ORANGE}[4]${NC} Logs do PostgreSQL"
-    echo -e "  ${ORANGE}[5]${NC} Todos os logs"
-    echo -e "  ${ORANGE}[0]${NC} Voltar"
-    echo ""
-    
-    read -p "Escolha uma opção: " LOG_OPTION
-    
-    case $LOG_OPTION in
-        1)
-            echo ""
-            echo -e "${ORANGE}=== LOGS DA API ===${NC}"
-            docker compose logs api --tail=50
-            ;;
-        2)
-            echo ""
-            echo -e "${ORANGE}=== LOGS DO FRONTEND ===${NC}"
-            docker compose logs frontend --tail=50
-            ;;
-        3)
-            echo ""
-            echo -e "${ORANGE}=== LOGS DO NGINX ===${NC}"
-            docker compose logs nginx --tail=50
-            ;;
-        4)
-            echo ""
-            echo -e "${ORANGE}=== LOGS DO POSTGRESQL ===${NC}"
-            docker compose logs postgres --tail=50
-            ;;
-        5)
-            echo ""
-            echo -e "${ORANGE}=== TODOS OS LOGS ===${NC}"
-            docker compose logs --tail=30
-            ;;
-        *)
-            return
-            ;;
-    esac
-    
-    pause
-}
-
-# Função para reiniciar serviços
-do_restart_services() {
-    show_banner
-    
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           REINICIAR SERVIÇOS${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    if [ ! -d "$INSTALL_DIR" ]; then
-        show_error "GO-API não está instalada."
-        pause
-        return
-    fi
-    
-    cd $INSTALL_DIR
-    
-    echo -e "  ${ORANGE}[1]${NC} Reiniciar todos os serviços"
-    echo -e "  ${ORANGE}[2]${NC} Reiniciar apenas API"
-    echo -e "  ${ORANGE}[3]${NC} Reiniciar apenas Frontend"
-    echo -e "  ${ORANGE}[4]${NC} Reiniciar apenas Nginx"
-    echo -e "  ${ORANGE}[5]${NC} Parar todos os serviços"
-    echo -e "  ${ORANGE}[6]${NC} Iniciar todos os serviços"
-    echo -e "  ${ORANGE}[0]${NC} Voltar"
-    echo ""
-    
-    read -p "Escolha uma opção: " RESTART_OPTION
-    
-    case $RESTART_OPTION in
-        1)
-            show_progress "Reiniciando todos os serviços"
-            docker compose restart
-            show_success "Serviços reiniciados"
-            ;;
-        2)
-            show_progress "Reiniciando API"
-            docker compose restart api
-            show_success "API reiniciada"
-            ;;
-        3)
-            show_progress "Reiniciando Frontend"
-            docker compose restart frontend
-            show_success "Frontend reiniciado"
-            ;;
-        4)
-            show_progress "Reiniciando Nginx"
-            docker compose restart nginx
-            show_success "Nginx reiniciado"
-            ;;
-        5)
-            show_progress "Parando todos os serviços"
-            docker compose down
-            show_success "Serviços parados"
-            ;;
-        6)
-            show_progress "Iniciando todos os serviços"
-            docker compose up -d
-            show_success "Serviços iniciados"
-            ;;
-        *)
-            return
-            ;;
-    esac
-    
-    # Mostrar status
-    echo ""
-    echo -e "${ORANGE}Status dos serviços:${NC}"
-    docker compose ps
-    
-    pause
-}
-
-# Função para resetar o sistema completamente
-do_reset_system() {
-    show_banner
-    
-    echo -e "${RED}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${RED}           ⚠️  RESETAR SISTEMA - ATENÇÃO!${NC}"
-    echo -e "${RED}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "${RED}Esta ação irá REMOVER COMPLETAMENTE:${NC}"
-    echo -e "  ${RED}•${NC} Todos os containers GO-API"
-    echo -e "  ${RED}•${NC} Todos os volumes (banco de dados, sessões)"
-    echo -e "  ${RED}•${NC} Todas as imagens Docker do GO-API"
-    echo -e "  ${RED}•${NC} Certificados SSL"
-    echo -e "  ${RED}•${NC} Logs do sistema"
-    echo -e "  ${RED}•${NC} Configurações (docker-compose.yml, nginx.conf)"
-    echo -e "  ${RED}•${NC} Diretório /opt/goapi completo"
-    echo -e "  ${RED}•${NC} Cache do Docker"
-    echo ""
-    echo -e "${RED}⚠️  TODOS OS DADOS SERÃO PERDIDOS PERMANENTEMENTE!${NC}"
-    echo -e "${RED}⚠️  NÃO HÁ COMO RECUPERAR APÓS ESTA AÇÃO!${NC}"
-    echo ""
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "${YELLOW}Para confirmar, digite ${WHITE}RESETAR${YELLOW} (em maiúsculas):${NC}"
-    read -p "" CONFIRM_RESET
-    
-    if [ "$CONFIRM_RESET" != "RESETAR" ]; then
-        echo ""
-        show_info "Operação cancelada. Nenhuma alteração foi feita."
-        pause
-        return
-    fi
-    
-    echo ""
-    echo -e "${RED}Última chance! Tem certeza? [s/N]${NC}"
-    read -p "" FINAL_CONFIRM
-    
-    if [[ ! "$FINAL_CONFIRM" =~ ^[Ss]$ ]]; then
-        echo ""
-        show_info "Operação cancelada."
-        pause
-        return
-    fi
-    
-    echo ""
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${ORANGE}           RESETANDO SISTEMA COMPLETAMENTE...${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    # Passo 1: Parar e remover containers com volumes
-    show_progress "Parando todos os containers GO-API"
-    if [ -d "$INSTALL_DIR" ]; then
-        cd $INSTALL_DIR
-        docker compose down -v --remove-orphans 2>/dev/null || true
-    fi
-    
-    # Parar containers por nome também
-    docker stop goapi-nginx goapi-frontend goapi-backend goapi-postgres goapi-certbot goapi-traefik nginx-ssl-temp 2>/dev/null || true
-    docker rm -f goapi-nginx goapi-frontend goapi-backend goapi-postgres goapi-certbot goapi-traefik nginx-ssl-temp 2>/dev/null || true
-    show_success "Containers parados e removidos"
-    
-    # Passo 2: Remover volumes específicos do GO-API
-    show_progress "Removendo volumes do GO-API"
-    docker volume rm goapi_postgres_data goapi_sessions_data goapi_license_data goapi_letsencrypt_data 2>/dev/null || true
-    docker volume rm $(docker volume ls -q | grep -E "goapi|gofree" 2>/dev/null) 2>/dev/null || true
-    show_success "Volumes removidos"
-    
-    # Passo 3: Remover imagens do GO-API
-    show_progress "Removendo imagens do GO-API"
-    GOAPI_IMAGES=$(docker images --format "{{.ID}} {{.Repository}}" | grep -E "goapi|gofree" | awk '{print $1}' 2>/dev/null)
-    if [ -n "$GOAPI_IMAGES" ]; then
-        echo "$GOAPI_IMAGES" | xargs docker rmi -f 2>/dev/null || true
-    fi
-    show_success "Imagens removidas"
-    
-    # Passo 4: Remover redes do GO-API
-    show_progress "Removendo redes do GO-API"
-    docker network rm goapi_goapi-network goapi-network 2>/dev/null || true
-    docker network rm $(docker network ls -q --filter name=goapi 2>/dev/null) 2>/dev/null || true
-    show_success "Redes removidas"
-    
-    # Passo 5: Remover diretório de instalação COMPLETO
-    show_progress "Removendo diretório /opt/goapi (incluindo SSL, logs, configs)"
-    rm -rf $INSTALL_DIR
-    show_success "Diretório removido completamente"
-    
-    # Passo 6: Remover arquivos temporários
-    show_progress "Removendo arquivos temporários"
-    rm -f /tmp/nginx-ssl.conf 2>/dev/null || true
-    rm -f /tmp/goapi-* 2>/dev/null || true
-    show_success "Arquivos temporários removidos"
-    
-    # Passo 7: Limpar cache do Docker
-    show_progress "Limpando cache do Docker"
-    docker system prune -af 2>/dev/null || true
-    show_success "Cache do Docker limpo"
-    
-    # Passo 8: Remover volumes órfãos
-    show_progress "Removendo volumes órfãos"
-    docker volume prune -f 2>/dev/null || true
-    show_success "Volumes órfãos removidos"
-    
-    # Passo 9: Limpar logs do Let's Encrypt
-    show_progress "Limpando logs do Let's Encrypt"
-    rm -rf /var/log/letsencrypt/* 2>/dev/null || true
-    show_success "Logs do Let's Encrypt limpos"
-    
-    echo ""
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}           ✅ SISTEMA RESETADO COMPLETAMENTE!${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "${WHITE}Itens removidos:${NC}"
-    echo -e "  ${GREEN}✓${NC} Containers"
-    echo -e "  ${GREEN}✓${NC} Volumes (banco de dados, sessões)"
-    echo -e "  ${GREEN}✓${NC} Imagens Docker"
-    echo -e "  ${GREEN}✓${NC} Redes Docker"
-    echo -e "  ${GREEN}✓${NC} Certificados SSL"
-    echo -e "  ${GREEN}✓${NC} Configurações"
-    echo -e "  ${GREEN}✓${NC} Logs"
-    echo -e "  ${GREEN}✓${NC} Cache"
-    echo ""
-    echo -e "${WHITE}O sistema está limpo para uma nova instalação.${NC}"
-    echo -e "${WHITE}Selecione a opção [1] para instalar novamente.${NC}"
-    echo ""
-    
-    pause
-}
-
-# Loop principal do menu
+# Função principal - Menu
 main_menu() {
+    check_root
+    
     while true; do
         show_banner
         show_menu
         
-        read -p "Escolha uma opção: " MENU_OPTION
+        read -p "$(echo -e ${ORANGE}Escolha uma opção: ${NC})" MENU_CHOICE
         
-        case $MENU_OPTION in
+        case $MENU_CHOICE in
             1)
                 do_install
                 ;;
             2)
-                do_check_license
+                do_extras_menu
                 ;;
             3)
-                do_check_ssl
+                show_banner
+                echo -e "${ORANGE}▶ VERIFICAR CERTIFICADOS SSL${NC}"
+                echo ""
+                show_info "Configure seu proxy reverso (Nginx/Traefik/Caddy)"
+                show_info "para gerenciar os certificados SSL."
+                echo ""
+                show_info "Portas dos serviços:"
+                cd $INSTALL_DIR 2>/dev/null && source .env 2>/dev/null
+                echo -e "  Frontend: $PORT_FRONTEND"
+                echo -e "  API: $PORT_API"
+                pause
                 ;;
             4)
-                do_change_credentials
+                change_credentials
                 ;;
             5)
-                do_view_logs
+                view_logs
                 ;;
             6)
-                do_restart_services
+                restart_services
                 ;;
             7)
-                do_reset_system
+                show_status
+                ;;
+            8)
+                reset_system
                 ;;
             0)
-                clear_screen
-                echo -e "${ORANGE}Obrigado por usar GO-API! Até logo!${NC}"
+                echo ""
+                echo -e "${ORANGE}Obrigado por usar GO-API! Até logo! 👋${NC}"
                 echo ""
                 exit 0
                 ;;
@@ -1701,7 +1047,5 @@ main_menu() {
     done
 }
 
-# Início do script
-check_root
-check_pipe
+# Iniciar
 main_menu

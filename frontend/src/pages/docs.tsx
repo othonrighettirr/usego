@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Layout from '@/components/Layout';
+import Footer from '@/components/Footer';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-usego.pdjn0h.easypanel.host';
 
@@ -389,9 +390,7 @@ export default function Docs() {
         </div>
       </div>
 
-      <div className="mt-12 border-t border-border-dark/50 pt-6 text-center">
-        <p className="text-sm text-slate-600">© 2025 GO-API todos direitos reservados.</p>
-      </div>
+      <Footer />
     </Layout>
   );
 }

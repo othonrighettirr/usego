@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
+import Footer from '@/components/Footer';
 import api from '@/lib/api';
 import Swal from 'sweetalert2';
 
@@ -130,7 +131,7 @@ export default function Messages() {
           </div>
         </div>
       </div>
-      <div className="mt-12 border-t border-border-dark/50 pt-6 text-center"><p className="text-sm text-slate-600">© 2025 GO-API todos direitos reservados.</p></div>
+      <Footer />
     </Layout>
   );
 }

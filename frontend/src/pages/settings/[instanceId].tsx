@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
+import Footer from '@/components/Footer';
 import api from '@/lib/api';
 import Swal from 'sweetalert2';
 
@@ -856,10 +857,7 @@ export default function InstanceSettingsPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-12 border-t border-border-dark/50 pt-6 text-center">
-        <p className="text-sm text-slate-600">© 2025 GO-API todos direitos reservados.</p>
-      </div>
+      <Footer />
     </Layout>
   );
 }
