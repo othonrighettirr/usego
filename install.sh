@@ -1,5 +1,5 @@
 #!/bin/bash
-# GO-API Installer v2.0 - Com Licenciamento e SSL Automatico
+# GO-API Installer v1.0 - Com Licenciamento e SSL Automatico
 
 LICENSE_SERVER="https://usego.com.br"
 
@@ -37,7 +37,7 @@ show_banner() {
     echo -e "${ORANGE}   ######   #######      ##     ## ##      ##        ###### ${NC}"
     echo ""
     echo -e "${YELLOW}=============================================================${NC}"
-    echo -e "${WHITE}       GO-API Installer v2.0 - Com SSL Automatico${NC}"
+    echo -e "${WHITE}       GO-API Installer v1.0 - Com SSL Automatico${NC}"
     echo -e "${YELLOW}=============================================================${NC}"
     echo ""
 }
