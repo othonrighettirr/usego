@@ -28,17 +28,17 @@ check_root() {
 show_banner() {
     clear
     echo ""
-    echo -e "${ORANGE}   ######   #######         ###    ######  ##     ##    ##  ${NC}"
-    echo -e "${ORANGE}  ##    ## ##     ##       ## ##   ##   ## ##     ##   ###  ${NC}"
-    echo -e "${ORANGE}  ##       ##     ##      ##   ##  ##   ## ##     ##    ##  ${NC}"
-    echo -e "${ORANGE}  ##   ### ##     ## ### ##     ## ######  ##     ##    ##  ${NC}"
-    echo -e "${ORANGE}  ##    ## ##     ##     ######### ##       ##   ##     ##  ${NC}"
-    echo -e "${ORANGE}  ##    ## ##     ##     ##     ## ##        ## ##      ##  ${NC}"
-    echo -e "${ORANGE}   ######   #######      ##     ## ##         ###      #### ${NC}"
+    echo -e "${ORANGE}   ######   #######            ###    ######  ##  ${NC}"
+    echo -e "${ORANGE}  ##    ## ##     ##          ## ##   ##   ## ##  ${NC}"
+    echo -e "${ORANGE}  ##       ##     ##         ##   ##  ##   ## ##  ${NC}"
+    echo -e "${ORANGE}  ##   ### ##     ##  ##### ##     ## ######  ##  ${NC}"
+    echo -e "${ORANGE}  ##    ## ##     ##        ######### ##      ##  ${NC}"
+    echo -e "${ORANGE}  ##    ## ##     ##        ##     ## ##      ##  ${NC}"
+    echo -e "${ORANGE}   ######   #######         ##     ## ##      ##  ${NC}"
     echo ""
-    echo -e "${YELLOW}=============================================================${NC}"
+    echo -e "${YELLOW}=====================================================${NC}"
     echo -e "${WHITE}       GO-API Installer v1.0 - Com SSL Automatico${NC}"
-    echo -e "${YELLOW}=============================================================${NC}"
+    echo -e "${YELLOW}=====================================================${NC}"
     echo ""
 }
 
@@ -111,18 +111,18 @@ select_typebot_version() {
 
 select_n8n_version() {
     echo -e "${WHITE}Qual versao do N8N deseja instalar?${NC}" >&2
-    echo "  1) 1.70 (Recomendada)" >&2
-    echo "  2) 1.69" >&2
-    echo "  3) 1.68" >&2
+    echo "  1) 1.70.0 (Recomendada)" >&2
+    echo "  2) 1.69.0" >&2
+    echo "  3) 1.68.0" >&2
     echo "  4) latest" >&2
     echo "" >&2
     echo -n "Escolha [1]: " >&2
     read -r opt
     case "$opt" in
-        2) echo "1.69" ;;
-        3) echo "1.68" ;;
+        2) echo "1.69.0" ;;
+        3) echo "1.68.0" ;;
         4) echo "latest" ;;
-        *) echo "1.70" ;;
+        *) echo "1.70.0" ;;
     esac
 }
 
