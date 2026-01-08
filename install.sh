@@ -533,8 +533,8 @@ install_typebot() {
     PORT_BUILDER=$(find_free_port 3003)
     PORT_VIEWER=$(find_free_port 3002)
     PORT_TYPEBOT_PG=$(find_free_port 5433)
-    ENCRYPTION_SECRET=$(openssl rand -hex 32)
-    NEXTAUTH_SECRET=$(openssl rand -hex 32)
+    ENCRYPTION_SECRET=$(openssl rand -hex 16)
+    NEXTAUTH_SECRET=$(openssl rand -base64 32)
     
     cat > docker-compose-typebot.yml << EOF
 services:
