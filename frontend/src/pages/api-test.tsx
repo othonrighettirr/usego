@@ -145,7 +145,11 @@ export default function ApiTest() {
     try {
       let url: string;
       if (useProxy) {
-        const cleanPath = path.startsWith('/api/') ? path.slice(5) : path.slice(1);
+        // Remove a barra inicial e o prefixo /api/ se existir
+        let cleanPath = path.startsWith('/') ? path.slice(1) : path;
+        if (cleanPath.startsWith('api/')) {
+          cleanPath = cleanPath.slice(4); // Remove 'api/'
+        }
         url = `/api/proxy/${cleanPath}`;
       } else {
         url = `${baseUrl}${path}`;

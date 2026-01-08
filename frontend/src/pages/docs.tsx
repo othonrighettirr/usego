@@ -29,10 +29,19 @@ const sections: Section[] = [
     title: 'Autenticação',
     icon: 'lock',
     color: 'blue',
-    description: 'Login e gerenciamento de sessão',
+    description: 'Login e gerenciamento de sessão - Obtenha o JWT Token aqui',
     endpoints: [
-      { method: 'POST', path: '/auth/login', description: 'Fazer login', body: '{\n  "email": "seu@email.com",\n  "password": "sua_senha"\n}', response: '{\n  "access_token": "eyJhbGciOiJIUzI1NiIs...",\n  "user": { "id": "uuid", "email": "seu@email.com" }\n}' },
-      { method: 'POST', path: '/auth/register', description: 'Registrar novo usuário', body: '{\n  "email": "novo@email.com",\n  "password": "senha_segura",\n  "name": "Nome"\n}' },
+      { method: 'POST', path: '/auth/login', description: 'Fazer login e obter JWT Token', body: '{\n  "email": "seu@email.com",\n  "password": "sua_senha"\n}', response: '{\n  "access_token": "eyJhbGciOiJIUzI1NiIs...",\n  "user": { "id": "uuid", "email": "seu@email.com" }\n}',
+        examples: [
+          { lang: 'cURL', code: `curl -X POST "${API_URL}/auth/login" -H "Content-Type: application/json" -d '{"email": "seu@email.com", "password": "sua_senha"}'` },
+          { lang: 'JavaScript', code: `const response = await fetch("${API_URL}/auth/login", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ email: "seu@email.com", password: "sua_senha" })\n});\nconst { access_token } = await response.json();\n// Use: Authorization: Bearer {access_token}` },
+        ]
+      },
+      { method: 'POST', path: '/auth/register', description: 'Registrar novo usuário', body: '{\n  "email": "novo@email.com",\n  "password": "senha_segura",\n  "name": "Nome"\n}',
+        examples: [
+          { lang: 'cURL', code: `curl -X POST "${API_URL}/auth/register" -H "Content-Type: application/json" -d '{"email": "novo@email.com", "password": "senha_segura", "name": "Nome"}'` },
+        ]
+      },
     ],
   },
   {
@@ -40,7 +49,7 @@ const sections: Section[] = [
     title: 'Instâncias',
     icon: 'smartphone',
     color: 'green',
-    description: 'Gerenciamento de conexões WhatsApp',
+    description: 'Gerenciamento de conexões WhatsApp (requer JWT Token do login)',
     endpoints: [
       { method: 'GET', path: '/instances', description: 'Listar todas as instâncias', headers: 'Authorization: Bearer {token}' },
       { method: 'POST', path: '/instances', description: 'Criar nova instância', headers: 'Authorization: Bearer {token}', body: '{\n  "name": "Minha Instância"\n}' },
@@ -51,6 +60,8 @@ const sections: Section[] = [
       { method: 'POST', path: '/instances/:id/connect', description: 'Iniciar conexão', headers: 'Authorization: Bearer {token}' },
       { method: 'POST', path: '/instances/:id/disconnect', description: 'Desconectar (logout)', headers: 'Authorization: Bearer {token}' },
       { method: 'POST', path: '/instances/:id/restart', description: 'Reiniciar sem QR', headers: 'Authorization: Bearer {token}' },
+      { method: 'GET', path: '/instances/:id/settings', description: 'Obter configurações', headers: 'Authorization: Bearer {token}' },
+      { method: 'PUT', path: '/instances/:id/settings', description: 'Atualizar configurações', headers: 'Authorization: Bearer {token}', body: '{\n  "rejectCalls": true,\n  "ignoreGroups": false,\n  "alwaysOnline": true\n}' },
     ],
   },
   {
@@ -153,11 +164,13 @@ const sections: Section[] = [
     title: 'Integrações',
     icon: 'extension',
     color: 'teal',
-    description: 'Typebot, n8n e Chatwoot',
+    description: 'Typebot, n8n, Chatwoot e Whaticket (requer JWT Token)',
     endpoints: [
-      { method: 'POST', path: '/integrations/typebot', description: 'Configurar Typebot', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "enabled": true,\n  "apiUrl": "https://typebot.io",\n  "publicName": "meu-bot"\n}' },
-      { method: 'POST', path: '/integrations/n8n', description: 'Configurar n8n', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "enabled": true,\n  "webhookUrl": "https://n8n.../webhook"\n}' },
-      { method: 'POST', path: '/integrations/chatwoot', description: 'Configurar Chatwoot', headers: 'Authorization: Bearer {token}', body: '{\n  "instanceId": "uuid",\n  "enabled": true,\n  "url": "https://chatwoot...",\n  "accountId": "1",\n  "token": "token"\n}' },
+      { method: 'PUT', path: '/instances/:id/settings', description: 'Configurar Typebot', headers: 'Authorization: Bearer {token}', body: '{\n  "typebot": {\n    "enabled": true,\n    "apiUrl": "https://typebot.io/api/v1/typebots/xxx/startChat",\n    "triggerType": "keyword",\n    "keyword": "bot"\n  }\n}' },
+      { method: 'PUT', path: '/instances/:id/settings', description: 'Configurar n8n', headers: 'Authorization: Bearer {token}', body: '{\n  "n8n": {\n    "enabled": true,\n    "webhookUrl": "https://n8n.../webhook",\n    "triggerType": "keyword",\n    "keyword": "atendimento"\n  }\n}' },
+      { method: 'PUT', path: '/instances/:id/settings', description: 'Configurar Chatwoot', headers: 'Authorization: Bearer {token}', body: '{\n  "chatwoot": {\n    "enabled": true,\n    "url": "https://app.chatwoot.com",\n    "accountId": "1",\n    "token": "seu-token"\n  }\n}' },
+      { method: 'PUT', path: '/instances/:id/settings', description: 'Configurar Whaticket', headers: 'Authorization: Bearer {token}', body: '{\n  "whaticket": {\n    "enabled": true,\n    "url": "https://seu-whaticket.com",\n    "token": "seu-token",\n    "queueId": "1"\n  }\n}' },
+      { method: 'PUT', path: '/instances/:id/settings', description: 'Configurar Webhook', headers: 'Authorization: Bearer {token}', body: '{\n  "webhook": {\n    "enabled": true,\n    "url": "https://seu-servidor.com/webhook",\n    "events": ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]\n  }\n}' },
     ],
   },
 ];
@@ -204,7 +217,7 @@ export default function Docs() {
       </div>
 
       {/* API Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <div className="rounded-xl border border-border-dark bg-surface-dark p-4">
           <div className="flex items-center gap-3 mb-2">
             <span className="material-symbols-outlined text-primary">link</span>
@@ -214,17 +227,35 @@ export default function Docs() {
         </div>
         <div className="rounded-xl border border-border-dark bg-surface-dark p-4">
           <div className="flex items-center gap-3 mb-2">
-            <span className="material-symbols-outlined text-blue-400">phone</span>
-            <span className="text-sm text-slate-400">Telefone</span>
+            <span className="material-symbols-outlined text-blue-400">token</span>
+            <span className="text-sm text-slate-400">JWT Token</span>
           </div>
-          <code className="text-blue-400 font-mono text-sm">5511999999999</code>
+          <code className="text-blue-400 font-mono text-sm">Authorization: Bearer TOKEN</code>
         </div>
         <div className="rounded-xl border border-border-dark bg-surface-dark p-4">
           <div className="flex items-center gap-3 mb-2">
-            <span className="material-symbols-outlined text-green-400">group</span>
+            <span className="material-symbols-outlined text-amber-400">key</span>
+            <span className="text-sm text-slate-400">API Key</span>
+          </div>
+          <code className="text-amber-400 font-mono text-sm">x-api-key: KEY</code>
+        </div>
+      </div>
+
+      {/* Format Info Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="rounded-xl border border-border-dark bg-surface-dark p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="material-symbols-outlined text-green-400">phone</span>
+            <span className="text-sm text-slate-400">Telefone</span>
+          </div>
+          <code className="text-green-400 font-mono text-sm">5511999999999</code>
+        </div>
+        <div className="rounded-xl border border-border-dark bg-surface-dark p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="material-symbols-outlined text-indigo-400">group</span>
             <span className="text-sm text-slate-400">ID Grupo</span>
           </div>
-          <code className="text-green-400 font-mono text-sm">120363...@g.us</code>
+          <code className="text-indigo-400 font-mono text-sm">120363...@g.us</code>
         </div>
         <div className="rounded-xl border border-border-dark bg-surface-dark p-4">
           <div className="flex items-center gap-3 mb-2">
@@ -233,12 +264,21 @@ export default function Docs() {
           </div>
           <code className="text-pink-400 font-mono text-sm">120363...@newsletter</code>
         </div>
-        <div className="rounded-xl border border-border-dark bg-surface-dark p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="material-symbols-outlined text-amber-400">key</span>
-            <span className="text-sm text-slate-400">API Key</span>
+      </div>
+
+      {/* Auth Info */}
+      <div className="mb-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-blue-400">info</span>
+          <div>
+            <p className="text-blue-400 font-medium text-sm">Dois tipos de autenticação</p>
+            <p className="text-slate-400 text-xs mt-1">
+              <strong className="text-blue-300">JWT Token:</strong> Obtido via <code className="bg-blue-500/20 px-1 rounded">/auth/login</code> - usado para gerenciar instâncias e configurações
+            </p>
+            <p className="text-slate-400 text-xs mt-1">
+              <strong className="text-amber-300">API Key:</strong> Encontrada na página de Instâncias - usada para enviar mensagens e acessar contatos
+            </p>
           </div>
-          <code className="text-amber-400 font-mono text-sm">x-api-key: KEY</code>
         </div>
       </div>
 
