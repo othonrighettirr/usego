@@ -296,12 +296,6 @@ Contribuições são bem-vindas! Acesse [usego.com.br/members/payments](https://
 
 ---
 
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
----
-
 <p align="center">
   Feito com ❤️ pelo <strong>Time GO</strong>
 </p>
