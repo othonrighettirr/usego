@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://content.pstmn.io/c7241132-63e7-4e78-b371-ebbb9fccee3e/aW1nLWxvZ28ucG5n" alt="GO-API Logo" width="200"/>
+  <img src="https://content.pstmn.io/c7241132-63e7-4e78-b371-ebbb9fccee3e/aW1nLWxvZ28ucG5n" alt="GO-API Logo" width="400"/>
 </p>
 
 <p align="center">
