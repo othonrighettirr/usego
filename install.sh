@@ -1,23 +1,26 @@
 #!/bin/bash
-# GO-API Installer v2.0
-# Converter line endings se necessario (Windows -> Linux)
-if [[ "$(head -1 "$0" | tail -c 2)" == $'\r' ]]; then
-    sed -i 's/\r$//' "$0"
-    exec bash "$0" "$@"
-fi
+# GO-API Installer v2.0 - Com Licenciamento e Nginx Automatico
 
+# ========================================
+# LICENCIAMENTO - SERVIDOR DE VALIDACAO
+# ========================================
+LICENSE_SERVER="https://usego.com.br"
+
+# Cores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 WHITE='\033[1;37m'
 ORANGE='\033[38;5;208m'
-AMBER='\033[38;5;214m'
-GRAY='\033[0;90m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 INSTALL_DIR="/opt/goapi"
 EXTRAS_DIR="/opt/goapi-extras"
 REPO_URL="https://github.com/usegoapi/usego.git"
+
+VALIDATED_LICENSE_KEY=""
+VALIDATED_MACHINE_ID=""
 
 check_root() {
     if [ "$EUID" -ne 0 ]; then
@@ -26,31 +29,212 @@ check_root() {
     fi
 }
 
-show_progress() {
-    echo -e "${AMBER}⏳ $1...${NC}"
+# Barra de progresso
+show_progress_bar() {
+    local current=$1
+    local total=$2
+    local width=50
+    local percent=$((current * 100 / total))
+    local filled=$((width * current / total))
+    local empty=$((width - filled))
+    printf "\r${CYAN}["
+    printf "%${filled}s" | tr ' ' '#'
+    printf "%${empty}s" | tr ' ' '-'
+    printf "] ${percent}%% ${NC}"
 }
 
-show_success() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-show_error() {
-    echo -e "${RED}❌ $1${NC}"
-}
-
-show_info() {
-    echo -e "${ORANGE}ℹ️  $1${NC}"
-}
-
-is_port_in_use() {
-    local port=$1
-    if command -v ss >/dev/null 2>&1; then
-        ss -tuln 2>/dev/null | grep -q ":$port " && return 0 || return 1
-    elif command -v netstat >/dev/null 2>&1; then
-        netstat -tuln 2>/dev/null | grep -q ":$port " && return 0 || return 1
+run_with_progress() {
+    local message="$1"
+    local command="$2"
+    local duration=${3:-30}
+    echo -e "${YELLOW}>>> $message${NC}"
+    eval "$command" > /tmp/install_output.log 2>&1 &
+    local pid=$!
+    local elapsed=0
+    while kill -0 $pid 2>/dev/null; do
+        if [ $elapsed -lt $duration ]; then
+            show_progress_bar $elapsed $duration
+        else
+            show_progress_bar $duration $duration
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    wait $pid
+    local exit_code=$?
+    show_progress_bar $duration $duration
+    echo ""
+    if [ $exit_code -eq 0 ]; then
+        echo -e "${GREEN}[OK] $message${NC}"
     else
+        echo -e "${RED}[ERRO] $message${NC}"
+        tail -20 /tmp/install_output.log
+    fi
+    return $exit_code
+}
+
+show_success() { echo -e "${GREEN}[OK] $1${NC}"; }
+show_error() { echo -e "${RED}[ERRO] $1${NC}"; }
+show_info() { echo -e "${ORANGE}[INFO] $1${NC}"; }
+
+
+# ========================================
+# VALIDACAO DE LICENCA
+# ========================================
+generate_machine_id() {
+    local cpu_id=$(cat /proc/cpuinfo 2>/dev/null | grep -m1 "Serial\|model name" | md5sum | cut -d' ' -f1 | cut -c1-8)
+    local mac_id=$(ip link 2>/dev/null | grep -m1 "link/ether" | awk '{print $2}' | md5sum | cut -d' ' -f1 | cut -c1-8)
+    local disk_id=$(lsblk -o UUID 2>/dev/null | grep -v UUID | head -1 | md5sum | cut -d' ' -f1 | cut -c1-8)
+    echo "MID-${cpu_id^^}-${mac_id^^}-${disk_id^^}"
+}
+
+validate_license() {
+    local api_key="$1"
+    local machine_id="$2"
+    echo -e "${YELLOW}>>> Validando licenca...${NC}"
+    local response=$(curl -s -X POST "${LICENSE_SERVER}/api/license/validate" \
+        -H "Content-Type: application/json" \
+        -d "{\"licenseKey\": \"${api_key}\", \"machineId\": \"${machine_id}\"}" \
+        --connect-timeout 10 --max-time 30 2>/dev/null)
+    if [ -z "$response" ]; then
+        response=$(curl -s "${LICENSE_SERVER}/api/license/check?key=${api_key}&mid=${machine_id}" \
+            --connect-timeout 10 --max-time 30 2>/dev/null)
+    fi
+    if echo "$response" | grep -qi "valid\|success\|true\|active"; then
+        return 0
+    elif echo "$response" | grep -qi "invalid\|expired\|blocked\|false"; then
+        return 1
+    else
+        if [[ "$api_key" =~ ^[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$ ]]; then
+            echo -e "${YELLOW}[AVISO] Servidor indisponivel. Validando formato...${NC}"
+            return 0
+        fi
         return 1
     fi
+}
+
+request_license() {
+    show_banner
+    echo -e "${ORANGE}=== VALIDACAO DE LICENCA ===${NC}"
+    echo ""
+    echo -e "${WHITE}Para instalar, voce precisa de uma licenca valida.${NC}"
+    echo -e "${WHITE}Gerar em: ${CYAN}https://usego.com.br/licencas${NC}"
+    echo ""
+    VALIDATED_MACHINE_ID=$(generate_machine_id)
+    echo -e "${WHITE}Seu Machine ID: ${CYAN}${VALIDATED_MACHINE_ID}${NC}"
+    echo ""
+    echo -n "Digite sua LICENSE KEY: "
+    read -r LICENSE_KEY
+    if [ -z "$LICENSE_KEY" ]; then
+        show_error "LICENSE KEY obrigatoria!"
+        echo "Pressione ENTER..."
+        read -r
+        return 1
+    fi
+    if ! [[ "$LICENSE_KEY" =~ ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{8}-[A-Fa-f0-9]{8}-[A-Fa-f0-9]{8}$ ]]; then
+        show_error "Formato invalido! Use: XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"
+        echo "Pressione ENTER..."
+        read -r
+        return 1
+    fi
+    LICENSE_KEY=$(echo "$LICENSE_KEY" | tr '[:lower:]' '[:upper:]')
+    if validate_license "$LICENSE_KEY" "$VALIDATED_MACHINE_ID"; then
+        show_success "Licenca validada!"
+        VALIDATED_LICENSE_KEY="$LICENSE_KEY"
+        sleep 2
+        return 0
+    else
+        show_error "Licenca invalida ou expirada!"
+        echo "Pressione ENTER..."
+        read -r
+        return 1
+    fi
+}
+
+check_license_before_install() {
+    if [ -z "$VALIDATED_LICENSE_KEY" ]; then
+        if ! request_license; then
+            return 1
+        fi
+    fi
+    return 0
+}
+
+
+# ========================================
+# NGINX + SSL AUTOMATICO
+# ========================================
+install_nginx_ssl() {
+    echo -e "${YELLOW}>>> Instalando Nginx e Certbot...${NC}"
+    apt-get install -y -qq nginx certbot python3-certbot-nginx
+    systemctl enable nginx
+    systemctl start nginx
+    show_success "Nginx instalado!"
+}
+
+configure_nginx_domain() {
+    local domain="$1"
+    local port="$2"
+    local email="$3"
+    
+    echo -e "${YELLOW}>>> Configurando Nginx para ${domain}...${NC}"
+    
+    # Criar configuracao do Nginx
+    cat > /etc/nginx/sites-available/${domain} << EOFNGINX
+server {
+    listen 80;
+    server_name ${domain};
+    
+    location / {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 86400;
+    }
+}
+EOFNGINX
+
+    # Ativar site
+    ln -sf /etc/nginx/sites-available/${domain} /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default 2>/dev/null
+    
+    # Testar e recarregar Nginx
+    nginx -t > /dev/null 2>&1
+    systemctl reload nginx
+    
+    # Gerar certificado SSL
+    echo -e "${YELLOW}>>> Gerando certificado SSL para ${domain}...${NC}"
+    certbot --nginx -d ${domain} --non-interactive --agree-tos --email ${email} --redirect > /tmp/certbot.log 2>&1
+    
+    if [ $? -eq 0 ]; then
+        show_success "SSL configurado para ${domain}!"
+        return 0
+    else
+        echo -e "${YELLOW}[AVISO] SSL falhou. Verifique se o dominio aponta para este servidor.${NC}"
+        cat /tmp/certbot.log
+        return 1
+    fi
+}
+
+setup_ssl_renewal() {
+    # Configurar renovacao automatica
+    echo "0 0 * * * root certbot renew --quiet" > /etc/cron.d/certbot-renew
+    show_success "Renovacao automatica de SSL configurada!"
+}
+
+
+# ========================================
+# FUNCOES AUXILIARES
+# ========================================
+is_port_in_use() {
+    local port=$1
+    ss -tuln 2>/dev/null | grep -q ":$port " && return 0 || return 1
 }
 
 find_free_port() {
@@ -58,28 +242,21 @@ find_free_port() {
     local port=$start_port
     while is_port_in_use $port; do
         port=$((port + 1))
-        if [ $port -gt 65535 ]; then
-            echo "$start_port"
-            return
-        fi
     done
     echo $port
 }
 
 show_banner() {
     clear
-    echo -e "${ORANGE}"
-    echo "   ██████╗  ██████╗        █████╗ ██████╗ ██╗    ██╗   ██╗██████╗ "
-    echo "  ██╔════╝ ██╔═══██╗      ██╔══██╗██╔══██╗██║    ██║   ██║╚════██╗"
-    echo "  ██║  ███╗██║   ██║█████╗███████║██████╔╝██║    ██║   ██║ █████╔╝"
-    echo "  ██║   ██║██║   ██║╚════╝██╔══██║██╔═══╝ ██║    ╚██╗ ██╔╝██╔═══╝ "
-    echo "  ╚██████╔╝╚██████╔╝      ██║  ██║██║     ██║     ╚████╔╝ ███████╗"
-    echo "   ╚═════╝  ╚═════╝       ╚═╝  ╚═╝╚═╝     ╚═╝      ╚═══╝  ╚══════╝"
-    echo -e "${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}   Bem-vindo ao instalador GO-API v2.0${NC}"
-    echo -e "${WHITE}   Agora com suporte a Typebot, N8N e Chatwoot!${NC}"
-    echo -e "${AMBER}═══════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${ORANGE}   â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—        â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ•—    â–ˆâ–ˆâ•—   â–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— ${NC}"
+    echo -e "${ORANGE}  â–ˆâ–ˆâ•”â•â•â•â•â• â–ˆâ–ˆâ•”â•â•â•â–ˆâ–ˆâ•—      â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘    â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â•šâ•â•â•â•â–ˆâ–ˆâ•—${NC}"
+    echo -e "${ORANGE}  â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ•‘    â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘ â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•${NC}"
+    echo -e "${ORANGE}  â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â•šâ•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â•â• â–ˆâ–ˆâ•‘    â•šâ–ˆâ–ˆâ•— â–ˆâ–ˆâ•”â•â–ˆâ–ˆâ•”â•â•â•â• ${NC}"
+    echo -e "${ORANGE}  â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•      â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘     â•šâ–ˆâ–ˆâ–ˆâ–ˆâ•”â• â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—${NC}"
+    echo -e "${ORANGE}   â•šâ•â•â•â•â•â•  â•šâ•â•â•â•â•â•       â•šâ•â•  â•šâ•â•â•šâ•â•     â•šâ•â•      â•šâ•â•â•â•  â•šâ•â•â•â•â•â•â•${NC}"
+    echo ""
+    echo -e "${WHITE}   GO-API Installer v2.0 - Com SSL Automatico${NC}"
     echo ""
 }
 
@@ -98,382 +275,50 @@ install_docker() {
     if command -v docker >/dev/null 2>&1; then
         show_success "Docker ja instalado"
     else
-        show_progress "Instalando Docker"
-        curl -fsSL https://get.docker.com | sh
-        systemctl enable docker
-        systemctl start docker
-        show_success "Docker instalado"
+        run_with_progress "Instalando Docker" "curl -fsSL https://get.docker.com | sh && systemctl enable docker && systemctl start docker" 60
     fi
-    
     if docker compose version >/dev/null 2>&1; then
         show_success "Docker Compose disponivel"
     else
-        apt-get install -y docker-compose-plugin
-        show_success "Docker Compose instalado"
+        run_with_progress "Instalando Docker Compose" "apt-get install -y docker-compose-plugin" 30
     fi
 }
 
-prepare_extras() {
-    show_progress "Preparando ambiente"
-    mkdir -p $EXTRAS_DIR
+prepare_system() {
     detect_system
-    apt-get update -qq
-    apt-get install -y -qq curl wget git openssl ca-certificates gnupg net-tools
+    run_with_progress "Atualizando sistema" "apt-get update -qq" 20
+    run_with_progress "Instalando dependencias" "apt-get install -y -qq curl wget git openssl ca-certificates gnupg net-tools" 30
     install_docker
-    show_success "Ambiente preparado"
-}
-
-install_typebot() {
-    show_banner
-    echo -e "${ORANGE}INSTALANDO TYPEBOT${NC}"
-    echo ""
-    
-    prepare_extras
-    
-    echo -n "Dominio do Typebot Builder [ex: typebot.seusite.com]: "
-    read TYPEBOT_DOMAIN
-    echo -n "Dominio do Typebot Viewer [ex: bot.seusite.com]: "
-    read TYPEBOT_VIEWER_DOMAIN
-    echo -n "Seu EMAIL [para admin]: "
-    read TYPEBOT_EMAIL
-    
-    PORT_TYPEBOT=$(find_free_port 3002)
-    PORT_TYPEBOT_BUILDER=$(find_free_port 3003)
-    PORT_TYPEBOT_POSTGRES=$(find_free_port 5433)
-    
-    show_info "Builder: porta $PORT_TYPEBOT_BUILDER"
-    show_info "Viewer: porta $PORT_TYPEBOT"
-    show_info "PostgreSQL: porta $PORT_TYPEBOT_POSTGRES"
-    
-    TYPEBOT_SECRET=$(openssl rand -hex 32)
-    
-    cd $EXTRAS_DIR
-    
-    cat > docker-compose-typebot.yml << EOF
-services:
-  typebot-postgres:
-    image: postgres:15-alpine
-    container_name: typebot-postgres
-    restart: always
-    ports:
-      - "${PORT_TYPEBOT_POSTGRES}:5432"
-    environment:
-      - POSTGRES_USER=typebot
-      - POSTGRES_PASSWORD=typebot_secret_2024
-      - POSTGRES_DB=typebot
-    volumes:
-      - typebot_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U typebot -d typebot"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - typebot-network
-
-  typebot-builder:
-    image: baptistearno/typebot-builder:latest
-    container_name: typebot-builder
-    restart: always
-    ports:
-      - "${PORT_TYPEBOT_BUILDER}:3000"
-    environment:
-      - DATABASE_URL=postgresql://typebot:typebot_secret_2024@typebot-postgres:5432/typebot?schema=public
-      - NEXTAUTH_URL=https://${TYPEBOT_DOMAIN}
-      - NEXT_PUBLIC_VIEWER_URL=https://${TYPEBOT_VIEWER_DOMAIN}
-      - ENCRYPTION_SECRET=${TYPEBOT_SECRET}
-      - ADMIN_EMAIL=${TYPEBOT_EMAIL}
-      - DISABLE_SIGNUP=false
-    depends_on:
-      typebot-postgres:
-        condition: service_healthy
-    networks:
-      - typebot-network
-
-  typebot-viewer:
-    image: baptistearno/typebot-viewer:latest
-    container_name: typebot-viewer
-    restart: always
-    ports:
-      - "${PORT_TYPEBOT}:3000"
-    environment:
-      - DATABASE_URL=postgresql://typebot:typebot_secret_2024@typebot-postgres:5432/typebot?schema=public
-      - NEXTAUTH_URL=https://${TYPEBOT_DOMAIN}
-      - NEXT_PUBLIC_VIEWER_URL=https://${TYPEBOT_VIEWER_DOMAIN}
-      - ENCRYPTION_SECRET=${TYPEBOT_SECRET}
-    depends_on:
-      typebot-postgres:
-        condition: service_healthy
-    networks:
-      - typebot-network
-
-volumes:
-  typebot_postgres_data:
-
-networks:
-  typebot-network:
-    driver: bridge
-EOF
-
-    show_progress "Iniciando Typebot"
-    docker compose -f docker-compose-typebot.yml up -d
-    
-    echo ""
-    show_success "Typebot instalado!"
-    echo -e "  ${ORANGE}Builder:${NC} https://${TYPEBOT_DOMAIN} (porta ${PORT_TYPEBOT_BUILDER})"
-    echo -e "  ${ORANGE}Viewer:${NC}  https://${TYPEBOT_VIEWER_DOMAIN} (porta ${PORT_TYPEBOT})"
-    echo ""
-    
-    echo "TYPEBOT_DOMAIN=$TYPEBOT_DOMAIN" >> $EXTRAS_DIR/.env
-    echo "PORT_TYPEBOT=$PORT_TYPEBOT" >> $EXTRAS_DIR/.env
-    echo "PORT_TYPEBOT_BUILDER=$PORT_TYPEBOT_BUILDER" >> $EXTRAS_DIR/.env
-    
-    echo ""
-    read -p "Pressione ENTER para continuar..."
-}
-
-install_n8n() {
-    show_banner
-    echo -e "${ORANGE}INSTALANDO N8N${NC}"
-    echo ""
-    
-    prepare_extras
-    
-    echo -n "Dominio do N8N [ex: n8n.seusite.com]: "
-    read N8N_DOMAIN
-    
-    PORT_N8N=$(find_free_port 5678)
-    PORT_N8N_POSTGRES=$(find_free_port 5434)
-    
-    show_info "N8N: porta $PORT_N8N"
-    show_info "PostgreSQL: porta $PORT_N8N_POSTGRES"
-    
-    N8N_KEY=$(openssl rand -hex 16)
-    
-    cd $EXTRAS_DIR
-    
-    cat > docker-compose-n8n.yml << EOF
-services:
-  n8n-postgres:
-    image: postgres:15-alpine
-    container_name: n8n-postgres
-    restart: always
-    ports:
-      - "${PORT_N8N_POSTGRES}:5432"
-    environment:
-      - POSTGRES_USER=n8n
-      - POSTGRES_PASSWORD=n8n_secret_2024
-      - POSTGRES_DB=n8n
-    volumes:
-      - n8n_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U n8n -d n8n"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - n8n-network
-
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: n8n
-    restart: always
-    ports:
-      - "${PORT_N8N}:5678"
-    environment:
-      - N8N_HOST=${N8N_DOMAIN}
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=https
-      - NODE_ENV=production
-      - WEBHOOK_URL=https://${N8N_DOMAIN}/
-      - GENERIC_TIMEZONE=America/Sao_Paulo
-      - N8N_ENCRYPTION_KEY=${N8N_KEY}
-      - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=n8n-postgres
-      - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=n8n
-      - DB_POSTGRESDB_USER=n8n
-      - DB_POSTGRESDB_PASSWORD=n8n_secret_2024
-    volumes:
-      - n8n_data:/home/node/.n8n
-    depends_on:
-      n8n-postgres:
-        condition: service_healthy
-    networks:
-      - n8n-network
-
-volumes:
-  n8n_postgres_data:
-  n8n_data:
-
-networks:
-  n8n-network:
-    driver: bridge
-EOF
-
-    show_progress "Iniciando N8N"
-    docker compose -f docker-compose-n8n.yml up -d
-    
-    echo ""
-    show_success "N8N instalado!"
-    echo -e "  ${ORANGE}URL:${NC} https://${N8N_DOMAIN} (porta ${PORT_N8N})"
-    echo ""
-    
-    echo "N8N_DOMAIN=$N8N_DOMAIN" >> $EXTRAS_DIR/.env
-    echo "PORT_N8N=$PORT_N8N" >> $EXTRAS_DIR/.env
-    
-    echo ""
-    read -p "Pressione ENTER para continuar..."
+    install_nginx_ssl
 }
 
 
-install_chatwoot() {
-    show_banner
-    echo -e "${ORANGE}INSTALANDO CHATWOOT${NC}"
-    echo ""
-    
-    prepare_extras
-    
-    echo -n "Dominio do Chatwoot [ex: chat.seusite.com]: "
-    read CHATWOOT_DOMAIN
-    
-    PORT_CHATWOOT=$(find_free_port 3004)
-    PORT_CHATWOOT_REDIS=$(find_free_port 6379)
-    PORT_CHATWOOT_POSTGRES=$(find_free_port 5435)
-    
-    show_info "Chatwoot: porta $PORT_CHATWOOT"
-    show_info "Redis: porta $PORT_CHATWOOT_REDIS"
-    show_info "PostgreSQL: porta $PORT_CHATWOOT_POSTGRES"
-    
-    CHATWOOT_SECRET=$(openssl rand -hex 32)
-    
-    cd $EXTRAS_DIR
-    
-    cat > docker-compose-chatwoot.yml << EOF
-services:
-  chatwoot-postgres:
-    image: postgres:15-alpine
-    container_name: chatwoot-postgres
-    restart: always
-    ports:
-      - "${PORT_CHATWOOT_POSTGRES}:5432"
-    environment:
-      - POSTGRES_USER=chatwoot
-      - POSTGRES_PASSWORD=chatwoot_secret_2024
-      - POSTGRES_DB=chatwoot
-    volumes:
-      - chatwoot_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chatwoot -d chatwoot"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - chatwoot-network
-
-  chatwoot-redis:
-    image: redis:alpine
-    container_name: chatwoot-redis
-    restart: always
-    ports:
-      - "${PORT_CHATWOOT_REDIS}:6379"
-    volumes:
-      - chatwoot_redis_data:/data
-    networks:
-      - chatwoot-network
-
-  chatwoot:
-    image: chatwoot/chatwoot:latest
-    container_name: chatwoot
-    restart: always
-    ports:
-      - "${PORT_CHATWOOT}:3000"
-    environment:
-      - RAILS_ENV=production
-      - RAILS_LOG_TO_STDOUT=true
-      - SECRET_KEY_BASE=${CHATWOOT_SECRET}
-      - FRONTEND_URL=https://${CHATWOOT_DOMAIN}
-      - DATABASE_URL=postgresql://chatwoot:chatwoot_secret_2024@chatwoot-postgres:5432/chatwoot
-      - REDIS_URL=redis://chatwoot-redis:6379
-      - ACTIVE_STORAGE_SERVICE=local
-    volumes:
-      - chatwoot_storage:/app/storage
-    depends_on:
-      chatwoot-postgres:
-        condition: service_healthy
-    entrypoint: docker/entrypoints/rails.sh
-    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
-    networks:
-      - chatwoot-network
-
-  chatwoot-sidekiq:
-    image: chatwoot/chatwoot:latest
-    container_name: chatwoot-sidekiq
-    restart: always
-    environment:
-      - RAILS_ENV=production
-      - SECRET_KEY_BASE=${CHATWOOT_SECRET}
-      - FRONTEND_URL=https://${CHATWOOT_DOMAIN}
-      - DATABASE_URL=postgresql://chatwoot:chatwoot_secret_2024@chatwoot-postgres:5432/chatwoot
-      - REDIS_URL=redis://chatwoot-redis:6379
-    depends_on:
-      chatwoot-postgres:
-        condition: service_healthy
-    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
-    networks:
-      - chatwoot-network
-
-volumes:
-  chatwoot_postgres_data:
-  chatwoot_redis_data:
-  chatwoot_storage:
-
-networks:
-  chatwoot-network:
-    driver: bridge
-EOF
-
-    show_progress "Iniciando Chatwoot"
-    docker compose -f docker-compose-chatwoot.yml up -d
-    
-    sleep 30
-    show_progress "Executando migrations"
-    docker compose -f docker-compose-chatwoot.yml exec -T chatwoot bundle exec rails db:chatwoot_prepare 2>/dev/null || true
-    
-    echo ""
-    show_success "Chatwoot instalado!"
-    echo -e "  ${ORANGE}URL:${NC} https://${CHATWOOT_DOMAIN} (porta ${PORT_CHATWOOT})"
-    echo -e "  ${GRAY}Crie sua conta de admin no primeiro acesso${NC}"
-    echo ""
-    
-    echo "CHATWOOT_DOMAIN=$CHATWOOT_DOMAIN" >> $EXTRAS_DIR/.env
-    echo "PORT_CHATWOOT=$PORT_CHATWOOT" >> $EXTRAS_DIR/.env
-    
-    echo ""
-    read -p "Pressione ENTER para continuar..."
-}
-
+# ========================================
+# INSTALACAO GO-API PRINCIPAL
+# ========================================
 do_install_goapi() {
+    if ! check_license_before_install; then
+        return 1
+    fi
+    
     show_banner
-    echo -e "${ORANGE}INSTALACAO GO-API${NC}"
+    echo -e "${ORANGE}=== INSTALACAO GO-API ===${NC}"
+    echo -e "${GREEN}Licenca: ${VALIDATED_LICENSE_KEY}${NC}"
     echo ""
     
-    show_progress "Preparando sistema"
-    detect_system
-    apt-get update -qq
-    apt-get upgrade -y -qq
-    apt-get install -y -qq curl wget git openssl ca-certificates gnupg net-tools
-    install_docker
+    prepare_system
     
+    echo ""
+    echo -e "${WHITE}Configure os dominios (devem apontar para este servidor):${NC}"
     echo ""
     echo -n "Dominio do FRONTEND [ex: app.seusite.com]: "
-    read FRONTEND_DOMAIN
+    read -r FRONTEND_DOMAIN
     echo -n "Dominio da API [ex: api.seusite.com]: "
-    read API_DOMAIN
+    read -r API_DOMAIN
     echo -n "Seu EMAIL [para SSL e login]: "
-    read USER_EMAIL
+    read -r USER_EMAIL
     echo -n "SENHA do painel: "
-    read ADMIN_PASSWORD
+    read -r ADMIN_PASSWORD
     
     PORT_FRONTEND=$(find_free_port 3000)
     PORT_API=$(find_free_port 3001)
@@ -482,24 +327,15 @@ do_install_goapi() {
     echo ""
     show_info "Frontend: porta $PORT_FRONTEND"
     show_info "API: porta $PORT_API"
-    show_info "PostgreSQL: porta $PORT_POSTGRES"
     
-    show_progress "Clonando repositorio"
-    mkdir -p $INSTALL_DIR
+    run_with_progress "Clonando repositorio" "mkdir -p $INSTALL_DIR && cd $INSTALL_DIR && ([ -d .git ] && git pull --quiet || (rm -rf $INSTALL_DIR/* && git clone --quiet $REPO_URL .))" 60
+    
     cd $INSTALL_DIR
-    
-    if [ -d ".git" ]; then
-        git pull --quiet
-    else
-        rm -rf $INSTALL_DIR/*
-        git clone --quiet $REPO_URL .
-    fi
-    
     rm -f docker-compose*.yaml docker-compose*.yml 2>/dev/null
     
     JWT_SECRET=$(openssl rand -hex 32)
     
-    cat > docker-compose.yml << EOF
+    cat > docker-compose.yml << EOFGOAPI
 services:
   postgres:
     image: postgres:15-alpine
@@ -538,6 +374,9 @@ services:
       - CORS_ORIGIN=*
       - ADMIN_EMAIL=${USER_EMAIL}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - LICENSE_SERVER=${LICENSE_SERVER}
+      - LICENSE_KEY=${VALIDATED_LICENSE_KEY}
+      - MACHINE_ID=${VALIDATED_MACHINE_ID}
     volumes:
       - sessions_data:/app/sessions
     depends_on:
@@ -558,8 +397,6 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - NEXT_PUBLIC_API_URL=https://${API_DOMAIN}
-      - ADMIN_EMAIL=${USER_EMAIL}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
       - api
     networks:
@@ -572,211 +409,449 @@ volumes:
 networks:
   goapi-network:
     driver: bridge
-EOF
+EOFGOAPI
 
-    cat > .env << EOF
+    cat > .env << EOFENV
 FRONTEND_DOMAIN=${FRONTEND_DOMAIN}
 API_DOMAIN=${API_DOMAIN}
 USER_EMAIL=${USER_EMAIL}
 PORT_FRONTEND=${PORT_FRONTEND}
 PORT_API=${PORT_API}
-PORT_POSTGRES=${PORT_POSTGRES}
-EOF
+LICENSE_KEY=${VALIDATED_LICENSE_KEY}
+MACHINE_ID=${VALIDATED_MACHINE_ID}
+EOFENV
 
-    show_progress "Construindo imagens (pode demorar)"
-    docker compose build --quiet
+    run_with_progress "Construindo imagens (5-10 min)" "docker compose build" 400
+    run_with_progress "Iniciando PostgreSQL" "docker compose up -d postgres && sleep 15" 30
+    run_with_progress "Iniciando API" "docker compose up -d api && sleep 25" 40
+    run_with_progress "Iniciando Frontend" "docker compose up -d frontend && sleep 10" 30
     
-    show_progress "Iniciando servicos"
-    docker compose up -d postgres
-    sleep 10
-    docker compose up -d api
-    sleep 20
-    docker compose up -d frontend
-    
-    show_progress "Criando usuario admin"
-    sleep 10
-    
+    echo ""
+    echo -e "${YELLOW}>>> Criando usuario admin...${NC}"
+    sleep 5
     PASSWORD_HASH=$(docker compose exec -T api node -e "const bcrypt=require('bcryptjs');console.log(bcrypt.hashSync('${ADMIN_PASSWORD}',10));" 2>/dev/null | tr -d '\r\n')
-    
     if [ -n "$PASSWORD_HASH" ]; then
         docker compose exec -T postgres psql -U goapi -d goapi -c "INSERT INTO \"User\" (id,email,password,role,\"createdAt\") VALUES (gen_random_uuid(),'${USER_EMAIL}','${PASSWORD_HASH}','ADMIN',NOW()) ON CONFLICT (email) DO UPDATE SET password='${PASSWORD_HASH}',role='ADMIN';" >/dev/null 2>&1
         show_success "Usuario admin criado"
     fi
     
     echo ""
-    show_success "GO-API INSTALADA!"
+    echo -e "${YELLOW}>>> Configurando SSL automatico...${NC}"
+    configure_nginx_domain "$FRONTEND_DOMAIN" "$PORT_FRONTEND" "$USER_EMAIL"
+    configure_nginx_domain "$API_DOMAIN" "$PORT_API" "$USER_EMAIL"
+    setup_ssl_renewal
+    
     echo ""
-    echo -e "  ${ORANGE}Frontend:${NC} https://${FRONTEND_DOMAIN} (porta ${PORT_FRONTEND})"
-    echo -e "  ${ORANGE}API:${NC}      https://${API_DOMAIN} (porta ${PORT_API})"
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}   GO-API INSTALADA COM SUCESSO!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+    echo -e "  ${ORANGE}Frontend:${NC} https://${FRONTEND_DOMAIN}"
+    echo -e "  ${ORANGE}API:${NC}      https://${API_DOMAIN}"
     echo -e "  ${ORANGE}Email:${NC}    ${USER_EMAIL}"
     echo -e "  ${ORANGE}Senha:${NC}    ${ADMIN_PASSWORD}"
     echo ""
-    echo -e "${AMBER}Configure seu proxy reverso para as portas acima.${NC}"
+    echo -e "  ${CYAN}License:${NC}  ${VALIDATED_LICENSE_KEY}"
     echo ""
     
-    read -p "Pressione ENTER para continuar..."
+    echo "Pressione ENTER para continuar..."
+    read -r
 }
 
 
-show_status() {
+# ========================================
+# INSTALACAO TYPEBOT
+# ========================================
+install_typebot() {
+    if ! check_license_before_install; then return 1; fi
+    
     show_banner
-    echo -e "${ORANGE}STATUS DOS SERVICOS${NC}"
+    echo -e "${ORANGE}=== INSTALANDO TYPEBOT ===${NC}"
     echo ""
     
-    if [ -d "$INSTALL_DIR" ]; then
-        echo -e "${WHITE}GO-API:${NC}"
-        cd $INSTALL_DIR 2>/dev/null && docker compose ps 2>/dev/null || echo "  Nao instalado"
-        echo ""
-    fi
+    prepare_system
+    mkdir -p $EXTRAS_DIR && cd $EXTRAS_DIR
     
-    if [ -d "$EXTRAS_DIR" ]; then
-        cd $EXTRAS_DIR
-        if [ -f "docker-compose-typebot.yml" ]; then
-            echo -e "${WHITE}Typebot:${NC}"
-            docker compose -f docker-compose-typebot.yml ps 2>/dev/null || echo "  Nao rodando"
-            echo ""
-        fi
-        if [ -f "docker-compose-n8n.yml" ]; then
-            echo -e "${WHITE}N8N:${NC}"
-            docker compose -f docker-compose-n8n.yml ps 2>/dev/null || echo "  Nao rodando"
-            echo ""
-        fi
-        if [ -f "docker-compose-chatwoot.yml" ]; then
-            echo -e "${WHITE}Chatwoot:${NC}"
-            docker compose -f docker-compose-chatwoot.yml ps 2>/dev/null || echo "  Nao rodando"
-            echo ""
-        fi
-    fi
+    echo ""
+    echo -n "Dominio do Builder [ex: typebot.seusite.com]: "
+    read -r TYPEBOT_DOMAIN
+    echo -n "Dominio do Viewer [ex: bot.seusite.com]: "
+    read -r TYPEBOT_VIEWER_DOMAIN
+    echo -n "Seu EMAIL: "
+    read -r TYPEBOT_EMAIL
     
-    read -p "Pressione ENTER para continuar..."
+    PORT_BUILDER=$(find_free_port 3003)
+    PORT_VIEWER=$(find_free_port 3002)
+    PORT_PG=$(find_free_port 5433)
+    SECRET=$(openssl rand -hex 32)
+    
+    cat > docker-compose-typebot.yml << EOF
+services:
+  typebot-postgres:
+    image: postgres:15-alpine
+    container_name: typebot-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: typebot
+      POSTGRES_PASSWORD: typebot_2024
+      POSTGRES_DB: typebot
+    volumes:
+      - typebot_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U typebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  typebot-builder:
+    image: baptistearno/typebot-builder:latest
+    container_name: typebot-builder
+    restart: always
+    ports:
+      - "${PORT_BUILDER}:3000"
+    environment:
+      DATABASE_URL: postgresql://typebot:typebot_2024@typebot-postgres:5432/typebot
+      NEXTAUTH_URL: https://${TYPEBOT_DOMAIN}
+      NEXT_PUBLIC_VIEWER_URL: https://${TYPEBOT_VIEWER_DOMAIN}
+      ENCRYPTION_SECRET: ${SECRET}
+      ADMIN_EMAIL: ${TYPEBOT_EMAIL}
+    depends_on:
+      typebot-postgres:
+        condition: service_healthy
+
+  typebot-viewer:
+    image: baptistearno/typebot-viewer:latest
+    container_name: typebot-viewer
+    restart: always
+    ports:
+      - "${PORT_VIEWER}:3000"
+    environment:
+      DATABASE_URL: postgresql://typebot:typebot_2024@typebot-postgres:5432/typebot
+      NEXTAUTH_URL: https://${TYPEBOT_DOMAIN}
+      NEXT_PUBLIC_VIEWER_URL: https://${TYPEBOT_VIEWER_DOMAIN}
+      ENCRYPTION_SECRET: ${SECRET}
+    depends_on:
+      typebot-postgres:
+        condition: service_healthy
+
+volumes:
+  typebot_pg:
+EOF
+
+    run_with_progress "Baixando Typebot" "docker compose -f docker-compose-typebot.yml pull" 120
+    run_with_progress "Iniciando Typebot" "docker compose -f docker-compose-typebot.yml up -d" 60
+    
+    configure_nginx_domain "$TYPEBOT_DOMAIN" "$PORT_BUILDER" "$TYPEBOT_EMAIL"
+    configure_nginx_domain "$TYPEBOT_VIEWER_DOMAIN" "$PORT_VIEWER" "$TYPEBOT_EMAIL"
+    
+    echo ""
+    show_success "Typebot instalado!"
+    echo -e "  ${ORANGE}Builder:${NC} https://${TYPEBOT_DOMAIN}"
+    echo -e "  ${ORANGE}Viewer:${NC}  https://${TYPEBOT_VIEWER_DOMAIN}"
+    echo ""
+    echo "Pressione ENTER..."
+    read -r
+}
+
+# ========================================
+# INSTALACAO N8N
+# ========================================
+install_n8n() {
+    if ! check_license_before_install; then return 1; fi
+    
+    show_banner
+    echo -e "${ORANGE}=== INSTALANDO N8N ===${NC}"
+    echo ""
+    
+    prepare_system
+    mkdir -p $EXTRAS_DIR && cd $EXTRAS_DIR
+    
+    echo ""
+    echo -n "Dominio do N8N [ex: n8n.seusite.com]: "
+    read -r N8N_DOMAIN
+    echo -n "Seu EMAIL: "
+    read -r N8N_EMAIL
+    
+    PORT_N8N=$(find_free_port 5678)
+    N8N_KEY=$(openssl rand -hex 16)
+    
+    cat > docker-compose-n8n.yml << EOF
+services:
+  n8n-postgres:
+    image: postgres:15-alpine
+    container_name: n8n-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: n8n
+      POSTGRES_PASSWORD: n8n_2024
+      POSTGRES_DB: n8n
+    volumes:
+      - n8n_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+    ports:
+      - "${PORT_N8N}:5678"
+    environment:
+      N8N_HOST: ${N8N_DOMAIN}
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://${N8N_DOMAIN}/
+      N8N_ENCRYPTION_KEY: ${N8N_KEY}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-postgres
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: n8n_2024
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      n8n-postgres:
+        condition: service_healthy
+
+volumes:
+  n8n_pg:
+  n8n_data:
+EOF
+
+    run_with_progress "Baixando N8N" "docker compose -f docker-compose-n8n.yml pull" 90
+    run_with_progress "Iniciando N8N" "docker compose -f docker-compose-n8n.yml up -d" 60
+    
+    configure_nginx_domain "$N8N_DOMAIN" "$PORT_N8N" "$N8N_EMAIL"
+    
+    echo ""
+    show_success "N8N instalado!"
+    echo -e "  ${ORANGE}URL:${NC} https://${N8N_DOMAIN}"
+    echo ""
+    echo "Pressione ENTER..."
+    read -r
+}
+
+# ========================================
+# INSTALACAO CHATWOOT
+# ========================================
+install_chatwoot() {
+    if ! check_license_before_install; then return 1; fi
+    
+    show_banner
+    echo -e "${ORANGE}=== INSTALANDO CHATWOOT ===${NC}"
+    echo ""
+    
+    prepare_system
+    mkdir -p $EXTRAS_DIR && cd $EXTRAS_DIR
+    
+    echo ""
+    echo -n "Dominio do Chatwoot [ex: chat.seusite.com]: "
+    read -r CHATWOOT_DOMAIN
+    echo -n "Seu EMAIL: "
+    read -r CHATWOOT_EMAIL
+    
+    PORT_CW=$(find_free_port 3004)
+    SECRET=$(openssl rand -hex 32)
+    
+    cat > docker-compose-chatwoot.yml << EOF
+services:
+  chatwoot-postgres:
+    image: postgres:15-alpine
+    container_name: chatwoot-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: chatwoot
+      POSTGRES_PASSWORD: chatwoot_2024
+      POSTGRES_DB: chatwoot
+    volumes:
+      - cw_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatwoot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  chatwoot-redis:
+    image: redis:alpine
+    container_name: chatwoot-redis
+    restart: always
+    volumes:
+      - cw_redis:/data
+
+  chatwoot:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot
+    restart: always
+    ports:
+      - "${PORT_CW}:3000"
+    environment:
+      RAILS_ENV: production
+      SECRET_KEY_BASE: ${SECRET}
+      FRONTEND_URL: https://${CHATWOOT_DOMAIN}
+      DATABASE_URL: postgresql://chatwoot:chatwoot_2024@chatwoot-postgres:5432/chatwoot
+      REDIS_URL: redis://chatwoot-redis:6379
+    depends_on:
+      chatwoot-postgres:
+        condition: service_healthy
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+
+  chatwoot-sidekiq:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot-sidekiq
+    restart: always
+    environment:
+      RAILS_ENV: production
+      SECRET_KEY_BASE: ${SECRET}
+      DATABASE_URL: postgresql://chatwoot:chatwoot_2024@chatwoot-postgres:5432/chatwoot
+      REDIS_URL: redis://chatwoot-redis:6379
+    depends_on:
+      chatwoot-postgres:
+        condition: service_healthy
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+
+volumes:
+  cw_pg:
+  cw_redis:
+EOF
+
+    run_with_progress "Baixando Chatwoot" "docker compose -f docker-compose-chatwoot.yml pull" 180
+    run_with_progress "Iniciando Chatwoot" "docker compose -f docker-compose-chatwoot.yml up -d" 60
+    
+    echo -e "${YELLOW}>>> Configurando banco (aguarde)...${NC}"
+    sleep 30
+    docker compose -f docker-compose-chatwoot.yml exec -T chatwoot bundle exec rails db:chatwoot_prepare 2>/dev/null || true
+    
+    configure_nginx_domain "$CHATWOOT_DOMAIN" "$PORT_CW" "$CHATWOOT_EMAIL"
+    
+    echo ""
+    show_success "Chatwoot instalado!"
+    echo -e "  ${ORANGE}URL:${NC} https://${CHATWOOT_DOMAIN}"
+    echo ""
+    echo "Pressione ENTER..."
+    read -r
+}
+
+
+# ========================================
+# FUNCOES DE GERENCIAMENTO
+# ========================================
+show_status() {
+    show_banner
+    echo -e "${ORANGE}=== STATUS ===${NC}"
+    echo ""
+    [ -d "$INSTALL_DIR" ] && cd $INSTALL_DIR && echo -e "${WHITE}GO-API:${NC}" && docker compose ps 2>/dev/null
+    [ -d "$EXTRAS_DIR" ] && cd $EXTRAS_DIR && {
+        [ -f "docker-compose-typebot.yml" ] && echo -e "\n${WHITE}Typebot:${NC}" && docker compose -f docker-compose-typebot.yml ps 2>/dev/null
+        [ -f "docker-compose-n8n.yml" ] && echo -e "\n${WHITE}N8N:${NC}" && docker compose -f docker-compose-n8n.yml ps 2>/dev/null
+        [ -f "docker-compose-chatwoot.yml" ] && echo -e "\n${WHITE}Chatwoot:${NC}" && docker compose -f docker-compose-chatwoot.yml ps 2>/dev/null
+    }
+    echo ""
+    echo "Pressione ENTER..."
+    read -r
 }
 
 view_logs() {
     show_banner
-    echo -e "${ORANGE}LOGS DOS SERVICOS${NC}"
+    echo -e "${ORANGE}=== LOGS ===${NC}"
     echo ""
-    echo "  [1] GO-API (API)"
-    echo "  [2] GO-API (Frontend)"
-    echo "  [3] Typebot"
-    echo "  [4] N8N"
-    echo "  [5] Chatwoot"
-    echo "  [0] Voltar"
+    echo "  1) GO-API"
+    echo "  2) Typebot"
+    echo "  3) N8N"
+    echo "  4) Chatwoot"
+    echo "  0) Voltar"
     echo ""
     echo -n "Escolha: "
-    read LOG_OPT
-    
-    case $LOG_OPT in
-        1) cd $INSTALL_DIR 2>/dev/null && docker compose logs -f --tail=100 api || show_error "Nao instalado" ;;
-        2) cd $INSTALL_DIR 2>/dev/null && docker compose logs -f --tail=100 frontend || show_error "Nao instalado" ;;
-        3) cd $EXTRAS_DIR 2>/dev/null && docker compose -f docker-compose-typebot.yml logs -f --tail=100 2>/dev/null || show_error "Nao instalado" ;;
-        4) cd $EXTRAS_DIR 2>/dev/null && docker compose -f docker-compose-n8n.yml logs -f --tail=100 2>/dev/null || show_error "Nao instalado" ;;
-        5) cd $EXTRAS_DIR 2>/dev/null && docker compose -f docker-compose-chatwoot.yml logs -f --tail=100 2>/dev/null || show_error "Nao instalado" ;;
-        0) return ;;
+    read -r opt
+    case "$opt" in
+        1) cd $INSTALL_DIR 2>/dev/null && docker compose logs -f --tail=100 ;;
+        2) cd $EXTRAS_DIR 2>/dev/null && docker compose -f docker-compose-typebot.yml logs -f --tail=100 ;;
+        3) cd $EXTRAS_DIR 2>/dev/null && docker compose -f docker-compose-n8n.yml logs -f --tail=100 ;;
+        4) cd $EXTRAS_DIR 2>/dev/null && docker compose -f docker-compose-chatwoot.yml logs -f --tail=100 ;;
     esac
-    
-    read -p "Pressione ENTER para continuar..."
 }
 
 restart_services() {
     show_banner
-    echo -e "${ORANGE}REINICIANDO SERVICOS${NC}"
-    echo ""
-    
-    if [ -d "$INSTALL_DIR" ]; then
-        show_progress "Reiniciando GO-API"
-        cd $INSTALL_DIR && docker compose restart
-        show_success "GO-API reiniciada"
-    fi
-    
-    if [ -d "$EXTRAS_DIR" ]; then
-        cd $EXTRAS_DIR
-        [ -f "docker-compose-typebot.yml" ] && docker compose -f docker-compose-typebot.yml restart 2>/dev/null && show_success "Typebot reiniciado"
-        [ -f "docker-compose-n8n.yml" ] && docker compose -f docker-compose-n8n.yml restart 2>/dev/null && show_success "N8N reiniciado"
-        [ -f "docker-compose-chatwoot.yml" ] && docker compose -f docker-compose-chatwoot.yml restart 2>/dev/null && show_success "Chatwoot reiniciado"
-    fi
-    
-    read -p "Pressione ENTER para continuar..."
+    echo -e "${ORANGE}=== REINICIANDO ===${NC}"
+    [ -d "$INSTALL_DIR" ] && run_with_progress "GO-API" "cd $INSTALL_DIR && docker compose restart" 60
+    [ -d "$EXTRAS_DIR" ] && cd $EXTRAS_DIR && {
+        [ -f "docker-compose-typebot.yml" ] && run_with_progress "Typebot" "docker compose -f docker-compose-typebot.yml restart" 30
+        [ -f "docker-compose-n8n.yml" ] && run_with_progress "N8N" "docker compose -f docker-compose-n8n.yml restart" 30
+        [ -f "docker-compose-chatwoot.yml" ] && run_with_progress "Chatwoot" "docker compose -f docker-compose-chatwoot.yml restart" 30
+    }
+    echo "Pressione ENTER..."
+    read -r
 }
 
 change_credentials() {
     show_banner
-    echo -e "${ORANGE}ALTERAR CREDENCIAIS GO-API${NC}"
-    echo ""
-    
-    if [ ! -d "$INSTALL_DIR" ]; then
-        show_error "GO-API nao instalada"
-        read -p "Pressione ENTER para continuar..."
-        return
-    fi
-    
+    echo -e "${ORANGE}=== ALTERAR CREDENCIAIS ===${NC}"
+    [ ! -d "$INSTALL_DIR" ] && show_error "GO-API nao instalada" && read -r && return
     echo -n "Novo EMAIL: "
-    read NEW_EMAIL
+    read -r NEW_EMAIL
     echo -n "Nova SENHA: "
-    read NEW_PASSWORD
-    
+    read -r NEW_PASS
     cd $INSTALL_DIR
-    
-    PASSWORD_HASH=$(docker compose exec -T api node -e "const bcrypt=require('bcryptjs');console.log(bcrypt.hashSync('${NEW_PASSWORD}',10));" 2>/dev/null | tr -d '\r\n')
-    
-    if [ -n "$PASSWORD_HASH" ]; then
-        docker compose exec -T postgres psql -U goapi -d goapi -c "UPDATE \"User\" SET email='${NEW_EMAIL}',password='${PASSWORD_HASH}' WHERE role='ADMIN';" >/dev/null 2>&1
-        show_success "Credenciais atualizadas!"
-        echo -e "  ${ORANGE}Email:${NC} ${NEW_EMAIL}"
-        echo -e "  ${ORANGE}Senha:${NC} ${NEW_PASSWORD}"
-    else
-        show_error "Erro ao atualizar"
-    fi
-    
-    read -p "Pressione ENTER para continuar..."
+    HASH=$(docker compose exec -T api node -e "const b=require('bcryptjs');console.log(b.hashSync('${NEW_PASS}',10));" 2>/dev/null | tr -d '\r\n')
+    [ -n "$HASH" ] && docker compose exec -T postgres psql -U goapi -d goapi -c "UPDATE \"User\" SET email='${NEW_EMAIL}',password='${HASH}' WHERE role='ADMIN';" >/dev/null 2>&1 && show_success "Atualizado!"
+    echo "Pressione ENTER..."
+    read -r
 }
 
 reset_system() {
     show_banner
-    echo -e "${RED}RESETAR SISTEMA${NC}"
-    echo ""
+    echo -e "${RED}=== RESETAR TUDO ===${NC}"
     echo -e "${RED}ATENCAO: Todos os dados serao perdidos!${NC}"
-    echo ""
-    echo -n "Digite 'RESETAR' para confirmar: "
-    read CONFIRM
-    
-    if [ "$CONFIRM" = "RESETAR" ]; then
-        if [ -d "$INSTALL_DIR" ]; then
-            cd $INSTALL_DIR && docker compose down -v --remove-orphans 2>/dev/null
-            rm -rf $INSTALL_DIR
-        fi
-        
-        if [ -d "$EXTRAS_DIR" ]; then
-            cd $EXTRAS_DIR
-            [ -f "docker-compose-typebot.yml" ] && docker compose -f docker-compose-typebot.yml down -v 2>/dev/null
-            [ -f "docker-compose-n8n.yml" ] && docker compose -f docker-compose-n8n.yml down -v 2>/dev/null
-            [ -f "docker-compose-chatwoot.yml" ] && docker compose -f docker-compose-chatwoot.yml down -v 2>/dev/null
-            rm -rf $EXTRAS_DIR
-        fi
-        
+    echo -n "Digite RESETAR: "
+    read -r confirm
+    [ "$confirm" = "RESETAR" ] && {
+        [ -d "$INSTALL_DIR" ] && cd $INSTALL_DIR && docker compose down -v 2>/dev/null && rm -rf $INSTALL_DIR
+        [ -d "$EXTRAS_DIR" ] && cd $EXTRAS_DIR && {
+            docker compose -f docker-compose-typebot.yml down -v 2>/dev/null
+            docker compose -f docker-compose-n8n.yml down -v 2>/dev/null
+            docker compose -f docker-compose-chatwoot.yml down -v 2>/dev/null
+        } && rm -rf $EXTRAS_DIR
         docker system prune -af --volumes 2>/dev/null
-        show_success "Sistema resetado!"
-    else
-        show_info "Operacao cancelada"
-    fi
-    
-    read -p "Pressione ENTER para continuar..."
+        show_success "Resetado!"
+    }
+    echo "Pressione ENTER..."
+    read -r
 }
 
+show_license_info() {
+    show_banner
+    echo -e "${ORANGE}=== LICENCA ===${NC}"
+    echo ""
+    echo -e "${WHITE}Machine ID: ${CYAN}$(generate_machine_id)${NC}"
+    [ -f "$INSTALL_DIR/.env" ] && source $INSTALL_DIR/.env 2>/dev/null && echo -e "${WHITE}License Key: ${GREEN}${LICENSE_KEY:-Nao configurada}${NC}"
+    echo ""
+    echo -e "${WHITE}Gerar em: ${CYAN}https://usego.com.br/licencas${NC}"
+    echo ""
+    echo "Pressione ENTER..."
+    read -r
+}
+
+
+# ========================================
+# MENUS
+# ========================================
 extras_menu() {
     while true; do
         show_banner
-        echo -e "${ORANGE}FERRAMENTAS EXTRAS${NC}"
+        echo -e "${ORANGE}=== FERRAMENTAS EXTRAS ===${NC}"
         echo ""
-        echo "  [1] Instalar Typebot"
-        echo "  [2] Instalar N8N"
-        echo "  [3] Instalar Chatwoot"
-        echo "  [4] Instalar Todos"
-        echo "  [0] Voltar"
+        echo "  1) Instalar Typebot"
+        echo "  2) Instalar N8N"
+        echo "  3) Instalar Chatwoot"
+        echo "  4) Instalar Todos"
+        echo "  0) Voltar"
         echo ""
         echo -n "Escolha: "
-        read EXTRA_OPT
-        
-        case $EXTRA_OPT in
+        read -r opt
+        case "$opt" in
             1) install_typebot ;;
             2) install_n8n ;;
             3) install_chatwoot ;;
@@ -789,49 +864,34 @@ extras_menu() {
 
 main_menu() {
     check_root
-    
     while true; do
         show_banner
-        echo -e "${ORANGE}MENU${NC}"
+        echo -e "${ORANGE}MENU PRINCIPAL${NC}"
         echo ""
-        echo "  [1] Instalar GO-API"
-        echo "  [2] Instalar Ferramentas Extras (Typebot, N8N, Chatwoot)"
-        echo "  [3] Verificar Certificados SSL"
-        echo "  [4] Mudar Login e Senha"
-        echo "  [5] Ver Logs"
-        echo "  [6] Reiniciar Servicos"
-        echo "  [7] Status dos Servicos"
-        echo "  [8] Resetar Sistema"
-        echo "  [0] Sair"
+        echo "  1) Instalar GO-API (com SSL automatico)"
+        echo "  2) Instalar Extras (Typebot, N8N, Chatwoot)"
+        echo "  3) Informacoes de Licenca"
+        echo "  4) Mudar Login e Senha"
+        echo "  5) Ver Logs"
+        echo "  6) Reiniciar Servicos"
+        echo "  7) Status"
+        echo "  8) Resetar Tudo"
+        echo "  0) Sair"
         echo ""
-        echo -e "${WHITE}Contribua: ${AMBER}https://usego.com.br/members/payments${NC}"
+        echo -e "${CYAN}Licenca: https://usego.com.br/licencas{NC}"
         echo ""
-        echo -n "Escolha uma opcao: "
-        read MENU_OPT
-        
-        case $MENU_OPT in
+        echo -n "Escolha: "
+        read -r opt
+        case "$opt" in
             1) do_install_goapi ;;
             2) extras_menu ;;
-            3) 
-                show_banner
-                echo -e "${ORANGE}CERTIFICADOS SSL${NC}"
-                echo ""
-                show_info "Configure seu proxy reverso (Nginx/Traefik/Caddy)"
-                show_info "para gerenciar os certificados SSL."
-                echo ""
-                if [ -f "$INSTALL_DIR/.env" ]; then
-                    source $INSTALL_DIR/.env 2>/dev/null
-                    echo "  Frontend: porta ${PORT_FRONTEND:-3000}"
-                    echo "  API: porta ${PORT_API:-3001}"
-                fi
-                read -p "Pressione ENTER para continuar..."
-                ;;
+            3) show_license_info ;;
             4) change_credentials ;;
             5) view_logs ;;
             6) restart_services ;;
             7) show_status ;;
             8) reset_system ;;
-            0) echo ""; echo -e "${ORANGE}Ate logo!${NC}"; echo ""; exit 0 ;;
+            0) echo -e "${ORANGE}Ate logo!${NC}"; exit 0 ;;
             *) show_error "Opcao invalida"; sleep 1 ;;
         esac
     done
