@@ -98,7 +98,7 @@ A **GO-API** é uma solução completa e profissional para integração com What
 Execute o comando abaixo em um servidor Ubuntu/Debian:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/usegoapi/usego/main/install.sh | bash
+wget -O install.sh https://raw.githubusercontent.com/usegoapi/usego/main/install.sh && chmod +x install.sh && sudo bash install.sh
 ```
 
 O instalador irá:
