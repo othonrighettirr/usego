@@ -28,13 +28,13 @@ check_root() {
 show_banner() {
     clear
     echo ""
-    echo -e "${ORANGE}   ######   #######         ###    ######  ##     ##  ##   ${NC}"
-    echo -e "${ORANGE}  ##    ## ##     ##       ## ##   ##   ## ##     ## ###   ${NC}"
-    echo -e "${ORANGE}  ##       ##     ##      ##   ##  ##   ## ##     ##  ##   ${NC}"
-    echo -e "${ORANGE}  ##   ### ##     ## ### ##     ## ######  ##     ##  ##   ${NC}"
-    echo -e "${ORANGE}  ##    ## ##     ##     ######### ##       ##   ##   ##   ${NC}"
-    echo -e "${ORANGE}  ##    ## ##     ##     ##     ## ##        ## ##    ##   ${NC}"
-    echo -e "${ORANGE}   ######   #######      ##     ## ##         ###    #### ${NC}"
+    echo -e "${ORANGE}   ######   #######         ###    ######  ##     ##    ##  ${NC}"
+    echo -e "${ORANGE}  ##    ## ##     ##       ## ##   ##   ## ##     ##   ###  ${NC}"
+    echo -e "${ORANGE}  ##       ##     ##      ##   ##  ##   ## ##     ##    ##  ${NC}"
+    echo -e "${ORANGE}  ##   ### ##     ## ### ##     ## ######  ##     ##    ##  ${NC}"
+    echo -e "${ORANGE}  ##    ## ##     ##     ######### ##       ##   ##     ##  ${NC}"
+    echo -e "${ORANGE}  ##    ## ##     ##     ##     ## ##        ## ##      ##  ${NC}"
+    echo -e "${ORANGE}   ######   #######      ##     ## ##         ###      #### ${NC}"
     echo ""
     echo -e "${YELLOW}=============================================================${NC}"
     echo -e "${WHITE}       GO-API Installer v1.0 - Com SSL Automatico${NC}"
@@ -93,14 +93,13 @@ show_info() { echo -e "${ORANGE}[INFO] $1${NC}"; }
 # SELECAO DE VERSAO
 # ========================================
 select_typebot_version() {
-    echo ""
-    echo -e "${WHITE}Selecione a versao do Typebot:${NC}"
-    echo "  1) 2.28 (Recomendada)"
-    echo "  2) 2.27"
-    echo "  3) 2.26"
-    echo "  4) latest"
-    echo ""
-    echo -n "Escolha [1]: "
+    echo -e "${WHITE}Qual versao do Typebot deseja instalar?${NC}" >&2
+    echo "  1) 2.28 (Recomendada)" >&2
+    echo "  2) 2.27" >&2
+    echo "  3) 2.26" >&2
+    echo "  4) latest" >&2
+    echo "" >&2
+    echo -n "Escolha [1]: " >&2
     read -r opt
     case "$opt" in
         2) echo "2.27" ;;
@@ -111,14 +110,13 @@ select_typebot_version() {
 }
 
 select_n8n_version() {
-    echo ""
-    echo -e "${WHITE}Selecione a versao do N8N:${NC}"
-    echo "  1) 1.70 (Recomendada)"
-    echo "  2) 1.69"
-    echo "  3) 1.68"
-    echo "  4) latest"
-    echo ""
-    echo -n "Escolha [1]: "
+    echo -e "${WHITE}Qual versao do N8N deseja instalar?${NC}" >&2
+    echo "  1) 1.70 (Recomendada)" >&2
+    echo "  2) 1.69" >&2
+    echo "  3) 1.68" >&2
+    echo "  4) latest" >&2
+    echo "" >&2
+    echo -n "Escolha [1]: " >&2
     read -r opt
     case "$opt" in
         2) echo "1.69" ;;
@@ -129,14 +127,13 @@ select_n8n_version() {
 }
 
 select_chatwoot_version() {
-    echo ""
-    echo -e "${WHITE}Selecione a versao do Chatwoot:${NC}"
-    echo "  1) v3.14 (Recomendada)"
-    echo "  2) v3.13"
-    echo "  3) v3.12"
-    echo "  4) latest"
-    echo ""
-    echo -n "Escolha [1]: "
+    echo -e "${WHITE}Qual versao do Chatwoot deseja instalar?${NC}" >&2
+    echo "  1) v3.14 (Recomendada)" >&2
+    echo "  2) v3.13" >&2
+    echo "  3) v3.12" >&2
+    echo "  4) latest" >&2
+    echo "" >&2
+    echo -n "Escolha [1]: " >&2
     read -r opt
     case "$opt" in
         2) echo "v3.13" ;;
