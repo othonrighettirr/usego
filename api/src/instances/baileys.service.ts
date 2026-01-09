@@ -370,6 +370,54 @@ export class BaileysService {
     }
   }
 
+  // Disparar webhook das settings
+  private async triggerSettingsWebhook(instanceId: string, event: string, data: any, webhookConfig: WebhookSettings) {
+    try {
+      if (!webhookConfig.enabled || !webhookConfig.url) return;
+
+      const payload = {
+        event,
+        instanceId,
+        data,
+        timestamp: new Date().toISOString(),
+      };
+
+      this.logger.debug(`Webhook: Enviando evento ${event} para ${webhookConfig.url}`);
+
+      const response = await fetch(webhookConfig.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`Webhook: Resposta não-OK: ${response.status} ${response.statusText}`);
+      } else {
+        this.logger.debug(`Webhook: Enviado com sucesso - status ${response.status}`);
+      }
+    } catch (err: any) {
+      this.logger.error(`Webhook: Erro ao enviar para ${webhookConfig.url}: ${err.message}`);
+    }
+  }
+
+  // Obter tipo da mensagem
+  private getMessageType(message: any): string {
+    if (!message) return 'unknown';
+    if (message.conversation || message.extendedTextMessage) return 'text';
+    if (message.imageMessage) return 'image';
+    if (message.videoMessage) return 'video';
+    if (message.audioMessage) return 'audio';
+    if (message.documentMessage) return 'document';
+    if (message.stickerMessage) return 'sticker';
+    if (message.contactMessage || message.contactsArrayMessage) return 'contact';
+    if (message.locationMessage) return 'location';
+    if (message.pollCreationMessage) return 'poll';
+    if (message.reactionMessage) return 'reaction';
+    if (message.listMessage) return 'list';
+    if (message.buttonsMessage || message.templateMessage) return 'buttons';
+    return 'unknown';
+  }
+
   // Criar agent de proxy baseado nas configurações
   private createProxyAgent(proxy: ProxySettings): any {
     if (!proxy.enabled || !proxy.host || !proxy.port) {
@@ -611,6 +659,23 @@ export class BaileysService {
                            msg.message?.imageMessage?.caption ||
                            msg.message?.videoMessage?.caption || '';
 
+        // Disparar webhook das settings se configurado
+        if (settings.webhook?.enabled && settings.webhook?.url && msg.key.remoteJid) {
+          const eventType = msg.key.fromMe ? 'messages.sent' : 'messages.upsert';
+          if (!settings.webhook.events?.length || settings.webhook.events.includes(eventType) || settings.webhook.events.includes('all')) {
+            this.triggerSettingsWebhook(instanceId, eventType, {
+              remoteJid: msg.key.remoteJid,
+              message: messageText,
+              messageId: msg.key.id,
+              fromMe: msg.key.fromMe || false,
+              pushName: msg.pushName || msg.key.remoteJid?.split('@')[0],
+              timestamp: new Date().toISOString(),
+              messageType: this.getMessageType(msg.message),
+              rawMessage: msg.message,
+            }, settings.webhook);
+          }
+        }
+
         // Chamar todos os callbacks de mensagem registrados para esta instância
         if (messageText && msg.key.remoteJid && this.messageCallbacks.has(instanceId)) {
           const callbacks = this.messageCallbacks.get(instanceId);
@@ -668,6 +733,19 @@ export class BaileysService {
         const instance = this.sockets.get(instanceId);
         if (instance) instance.status = 'DISCONNECTED';
         this.statusCallbacks.get(instanceId)?.('DISCONNECTED');
+
+        // Disparar webhook de desconexão
+        const settings = this.getSettings(instanceId);
+        if (settings.webhook?.enabled && settings.webhook?.url) {
+          const events = settings.webhook.events || [];
+          if (!events.length || events.includes('connection.update') || events.includes('all')) {
+            this.triggerSettingsWebhook(instanceId, 'connection.update', {
+              status: 'DISCONNECTED',
+              reason,
+              reasonMessage,
+            }, settings.webhook);
+          }
+        }
 
         this.logger.warn(`Conexão fechada para ${instanceId}: ${reason} - ${reasonMessage}`);
 
@@ -779,6 +857,20 @@ export class BaileysService {
         }
         this.statusCallbacks.get(instanceId)?.('CONNECTED');
         this.logger.log(`Instância ${instanceId} conectada com sucesso!`);
+
+        // Disparar webhook de conexão
+        const settings = this.getSettings(instanceId);
+        if (settings.webhook?.enabled && settings.webhook?.url) {
+          const events = settings.webhook.events || [];
+          if (!events.length || events.includes('connection.update') || events.includes('all')) {
+            const instance = this.sockets.get(instanceId);
+            this.triggerSettingsWebhook(instanceId, 'connection.update', {
+              status: 'CONNECTED',
+              phone: instance?.phone,
+              name: instance?.name,
+            }, settings.webhook);
+          }
+        }
       }
     });
 
