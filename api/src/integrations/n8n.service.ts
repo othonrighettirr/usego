@@ -220,19 +220,46 @@ export class N8nService implements OnModuleInit {
       }
 
       // Processar resposta do n8n se houver
+      // IMPORTANTE: Ignorar respostas automáticas do N8N que não são mensagens reais
+      const ignoredResponses = [
+        'Workflow was started',
+        'Workflow executed successfully',
+        'success',
+        'ok',
+        'OK',
+        'Success',
+      ];
+      
       if (response.data) {
         this.logger.debug(`n8n: Dados da resposta: ${JSON.stringify(response.data)}`);
         
+        // Verificar se é uma resposta automática do N8N para ignorar
+        const isIgnoredResponse = (msg: string) => {
+          if (!msg || typeof msg !== 'string') return true;
+          const trimmed = msg.trim();
+          return ignoredResponses.includes(trimmed) || trimmed === '';
+        };
+        
         if (typeof response.data === 'string' && response.data.trim()) {
-          await this.sendMessage(instanceId, remoteJid, response.data, config.delayMessage);
+          if (!isIgnoredResponse(response.data)) {
+            await this.sendMessage(instanceId, remoteJid, response.data, config.delayMessage);
+          } else {
+            this.logger.debug(`n8n: Ignorando resposta automática: "${response.data}"`);
+          }
         } else if (response.data.message) {
-          await this.sendMessage(instanceId, remoteJid, response.data.message, config.delayMessage);
+          if (!isIgnoredResponse(response.data.message)) {
+            await this.sendMessage(instanceId, remoteJid, response.data.message, config.delayMessage);
+          } else {
+            this.logger.debug(`n8n: Ignorando resposta automática: "${response.data.message}"`);
+          }
         } else if (response.data.messages && Array.isArray(response.data.messages)) {
           for (const msg of response.data.messages) {
-            if (config.delayMessage > 0) {
-              await new Promise(resolve => setTimeout(resolve, config.delayMessage));
+            if (!isIgnoredResponse(msg)) {
+              if (config.delayMessage > 0) {
+                await new Promise(resolve => setTimeout(resolve, config.delayMessage));
+              }
+              await this.sendMessage(instanceId, remoteJid, msg);
             }
-            await this.sendMessage(instanceId, remoteJid, msg);
           }
         }
       }
