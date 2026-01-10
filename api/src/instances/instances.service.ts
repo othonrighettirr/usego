@@ -242,12 +242,17 @@ export class InstancesService {
   }
 
   // Shared Token Methods - Persistido no banco de dados
-  async createSharedToken(instanceId: string, userId: string, expiresInHours = 24, permissions = ['view_qr']) {
+  async createSharedToken(instanceId: string, userId: string, expiresInHours = 168, permissions = ['view_qr']) {
     // Verificar se a instância pertence ao usuário
     const instance = await this.prisma.instance.findFirst({
       where: { id: instanceId, userId },
     });
     if (!instance) throw new NotFoundException('Instância não encontrada');
+
+    // Deletar tokens antigos desta instância
+    await this.prisma.sharedToken.deleteMany({
+      where: { instanceId },
+    });
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);

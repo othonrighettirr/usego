@@ -9,6 +9,8 @@ interface Instance {
   name: string;
   phone: string | null;
   status: string;
+  profilePic: string | null;
+  profileName: string | null;
 }
 
 interface Stats {
@@ -107,17 +109,44 @@ export default function Dashboard() {
                 key={instance.id}
                 className="flex items-center gap-4 p-4 rounded-xl bg-surface-light/50 border border-border-dark/50 hover:border-success/30 transition-colors"
               >
-                <div className="h-12 w-12 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-success">smartphone</span>
+                {/* Foto da instância ou ícone padrão */}
+                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {instance.profilePic ? (
+                    <img 
+                      src={instance.profilePic} 
+                      alt={instance.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <span className={`material-symbols-outlined text-success ${instance.profilePic ? 'hidden' : ''}`}>
+                    account_circle
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold truncate">{instance.name}</p>
+                  {/* Nome do perfil ou nome da instância */}
+                  <p className="text-white font-semibold truncate">
+                    {instance.profileName || instance.name}
+                  </p>
+                  {/* Telefone */}
+                  {instance.phone && (
+                    <p className="text-slate-400 text-xs truncate">
+                      +{instance.phone}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mt-1">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
                     </span>
                     <span className="text-success text-xs font-medium">Online</span>
+                    {/* Nome da instância se diferente do perfil */}
+                    {instance.profileName && instance.profileName !== instance.name && (
+                      <span className="text-slate-500 text-xs">• {instance.name}</span>
+                    )}
                   </div>
                 </div>
                 <Link

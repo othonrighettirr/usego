@@ -91,16 +91,20 @@ export class N8nService implements OnModuleInit {
     try {
       if (remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast') return;
 
-      // Ignorar mensagens enviadas por nós mesmos que são respostas automáticas do N8N
+      // Ignorar mensagens automáticas do N8N (tanto enviadas quanto recebidas)
       // Isso evita loops infinitos quando o N8N responde com "Workflow was started"
       const ignoredAutoMessages = [
         'Workflow was started',
         'Workflow executed successfully',
         'Workflow executed',
+        'workflow was started',
+        'workflow executed successfully',
+        'workflow executed',
       ];
       
-      if (fromMe && ignoredAutoMessages.some(ignored => message.includes(ignored))) {
-        this.logger.debug(`n8n: Ignorando mensagem automática enviada: "${message}"`);
+      const messageLower = message.toLowerCase().trim();
+      if (ignoredAutoMessages.some(ignored => messageLower === ignored.toLowerCase() || message.includes(ignored))) {
+        this.logger.debug(`n8n: Ignorando mensagem automática: "${message}" (fromMe: ${fromMe})`);
         return;
       }
 
