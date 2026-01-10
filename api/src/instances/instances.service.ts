@@ -243,22 +243,28 @@ export class InstancesService {
 
   // Shared Token Methods - Persistido no banco de dados
   async createSharedToken(instanceId: string, userId: string, expiresInHours = 168, permissions = ['view_qr']) {
+    console.log(`[SharedToken] Criando token para instância ${instanceId}, userId: ${userId}, expiresInHours: ${expiresInHours}`);
+    
     // Verificar se a instância pertence ao usuário
     const instance = await this.prisma.instance.findFirst({
       where: { id: instanceId, userId },
     });
-    if (!instance) throw new NotFoundException('Instância não encontrada');
+    if (!instance) {
+      console.log(`[SharedToken] Instância não encontrada: ${instanceId}`);
+      throw new NotFoundException('Instância não encontrada');
+    }
 
     // Deletar tokens antigos desta instância
-    await this.prisma.sharedToken.deleteMany({
+    const deleted = await this.prisma.sharedToken.deleteMany({
       where: { instanceId },
     });
+    console.log(`[SharedToken] Tokens antigos deletados: ${deleted.count}`);
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
     // Salvar no banco de dados
-    await this.prisma.sharedToken.create({
+    const created = await this.prisma.sharedToken.create({
       data: {
         instanceId,
         token,
@@ -266,11 +272,15 @@ export class InstancesService {
         expiresAt,
       },
     });
+    
+    console.log(`[SharedToken] Token criado: ${token.substring(0, 10)}..., expira em: ${expiresAt}`);
 
     return { token, expiresAt };
   }
 
   async getSharedQR(token: string) {
+    console.log(`[SharedQR] Buscando token: ${token}`);
+    
     // Buscar token no banco de dados
     const tokenData = await this.prisma.sharedToken.findUnique({
       where: { token },
@@ -278,10 +288,14 @@ export class InstancesService {
     });
     
     if (!tokenData) {
+      console.log(`[SharedQR] Token não encontrado no banco: ${token}`);
       throw new BadRequestException('Token inválido ou expirado');
     }
     
+    console.log(`[SharedQR] Token encontrado, instanceId: ${tokenData.instanceId}, expiresAt: ${tokenData.expiresAt}`);
+    
     if (new Date() > tokenData.expiresAt) {
+      console.log(`[SharedQR] Token expirado: ${token}`);
       // Deletar token expirado
       await this.prisma.sharedToken.delete({ where: { id: tokenData.id } });
       throw new BadRequestException('Token expirado');
@@ -289,12 +303,17 @@ export class InstancesService {
 
     const instance = tokenData.instance;
     if (!instance) {
+      console.log(`[SharedQR] Instância não encontrada para token: ${token}`);
       throw new NotFoundException('Instância não encontrada');
     }
 
-    const qr = this.baileys.getQR(tokenData.instanceId);
-    const status = this.baileys.getStatus(tokenData.instanceId);
+    const instanceId = tokenData.instanceId;
+    let status = this.baileys.getStatus(instanceId);
+    let qr = this.baileys.getQR(instanceId);
+    
+    console.log(`[SharedQR] Status atual: ${status}, QR disponível: ${!!qr}`);
 
+    // Se está conectado, retornar sucesso
     if (status === 'CONNECTED') {
       return {
         status: 'CONNECTED',
@@ -303,9 +322,37 @@ export class InstancesService {
       };
     }
 
+    // Se não tem QR e não está conectado, tentar iniciar conexão
+    if (!qr && status !== 'CONNECTING') {
+      try {
+        console.log(`[SharedQR] Iniciando conexão para instância ${instanceId}`);
+        const connectResult = await this.baileys.connect(instanceId);
+        
+        // Aguardar um pouco para o QR ser gerado
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Buscar QR novamente
+        qr = this.baileys.getQR(instanceId);
+        status = this.baileys.getStatus(instanceId);
+        
+        console.log(`[SharedQR] Após conexão - Status: ${status}, QR disponível: ${!!qr}`);
+        
+        if (status === 'CONNECTED') {
+          return {
+            status: 'CONNECTED',
+            qrCode: null,
+            instanceName: instance.name,
+          };
+        }
+      } catch (error) {
+        console.error(`[SharedQR] Erro ao conectar instância ${instanceId}:`, error);
+        // Continuar mesmo com erro, pode ser que o QR já esteja disponível
+      }
+    }
+
+    // Se ainda não tem QR, retornar status de espera
     if (!qr) {
-      // Tentar conectar se não estiver conectado
-      await this.baileys.connect(tokenData.instanceId);
+      console.log(`[SharedQR] QR ainda não disponível, retornando WAITING`);
       return {
         status: 'WAITING',
         qrCode: null,
@@ -313,6 +360,8 @@ export class InstancesService {
       };
     }
 
+    // Gerar QR Code em base64
+    console.log(`[SharedQR] Gerando QR Code em base64`);
     const qrCode = await QRCode.toDataURL(qr);
     return {
       status: 'QR_READY',

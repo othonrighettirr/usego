@@ -357,10 +357,19 @@ export default function Instances() {
                 className="flex-1 flex items-center justify-center py-3 rounded-xl bg-surface-light text-slate-400 hover:text-white transition-all">
                 <span className="material-symbols-outlined">settings</span>
               </button>
-              <button onClick={() => {
-                const link = `${window.location.origin}/qr/${instance.id}`;
-                navigator.clipboard.writeText(link);
-                Swal.fire({ title: 'Link copiado!', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+              <button onClick={async () => {
+                try {
+                  // Criar token compartilhado
+                  const { data } = await api.post('/auth/shared-token', { 
+                    instanceId: instance.id,
+                    expiresInHours: 168 // 7 dias
+                  });
+                  const link = `${window.location.origin}/qr/${data.token}`;
+                  navigator.clipboard.writeText(link);
+                  Swal.fire({ title: 'Link copiado!', text: 'Válido por 7 dias', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+                } catch (err: any) {
+                  Swal.fire({ title: 'Erro!', text: err.response?.data?.message || 'Erro ao gerar link', icon: 'error', background: '#1a1a1a', color: '#fff' });
+                }
               }} className="flex-1 flex items-center justify-center py-3 rounded-xl bg-surface-light text-slate-400 hover:text-white transition-all">
                 <span className="material-symbols-outlined">share</span>
               </button>
