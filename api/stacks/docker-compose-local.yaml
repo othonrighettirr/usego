@@ -1,0 +1,123 @@
+# =============================================
+# GO-API - Stack Local (Desenvolvimento)
+# PostgreSQL + Redis + Backend + Frontend
+# SEM Traefik/SSL - Acesso via localhost
+# =============================================
+#
+# USO:
+#   docker-compose -f stacks/docker-compose-local.yaml up -d
+#
+# ACESSO:
+#   Frontend: http://localhost:3001
+#   API:      http://localhost:3000
+#
+# =============================================
+
+version: '3.8'
+
+services:
+  # =============================================
+  # 1. POSTGRESQL - Banco de Dados
+  # =============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: goapi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: goapi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goapi123}
+      POSTGRES_DB: goapi
+    volumes:
+      - goapi_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goapi -d goapi"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks:
+      - goapi-network
+
+  # =============================================
+  # 2. REDIS - Cache e Filas
+  # =============================================
+  redis:
+    image: redis:7-alpine
+    container_name: goapi-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - goapi_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    networks:
+      - goapi-network
+
+  # =============================================
+  # 3. BACKEND - API
+  # =============================================
+  backend:
+    image: usegoapi/gopro-backend:latest
+    container_name: goapi-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DATABASE_URL: postgresql://goapi:${POSTGRES_PASSWORD:-goapi123}@postgres:5432/goapi
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-sua-chave-secreta-mude-isso-123456}
+      JWT_EXPIRES_IN: 7d
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@goapi.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      NODE_ENV: production
+      CORS_ORIGIN: "*"
+    volumes:
+      - goapi_sessions:/app/sessions
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    networks:
+      - goapi-network
+
+  # =============================================
+  # 4. FRONTEND
+  # =============================================
+  frontend:
+    image: usegoapi/gopro-frontend:latest
+    container_name: goapi-frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3000}
+      NODE_ENV: production
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - goapi-network
+
+volumes:
+  goapi_postgres_data:
+  goapi_redis_data:
+  goapi_sessions:
+
+networks:
+  goapi-network:
+    driver: bridge
