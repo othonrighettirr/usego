@@ -1,0 +1,99 @@
+# =============================================
+# GO-API - Stack para EasyPanel
+# PostgreSQL + Redis + Backend + Frontend
+# SSL Automático pelo EasyPanel
+# =============================================
+#
+# INSTRUÇÕES:
+# 1. Crie um projeto no EasyPanel chamado "goapi"
+# 2. Adicione os serviços NA ORDEM abaixo
+# 3. O EasyPanel gerencia SSL automaticamente
+#
+# ORDEM DE CRIAÇÃO:
+# 1º - PostgreSQL
+# 2º - Redis
+# 3º - Backend
+# 4º - Frontend
+#
+# =============================================
+
+services:
+  # =============================================
+  # 1. POSTGRESQL - Criar PRIMEIRO
+  # =============================================
+  # EasyPanel: + Service > Database > PostgreSQL
+  # Service Name: postgres
+  # =============================================
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=goapi
+      - POSTGRES_PASSWORD=goapi123
+      - POSTGRES_DB=goapi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Hostname interno: goapi_postgres
+
+  # =============================================
+  # 2. REDIS - Criar SEGUNDO
+  # =============================================
+  # EasyPanel: + Service > Database > Redis
+  # Service Name: redis
+  # =============================================
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    # Hostname interno: goapi_redis
+
+  # =============================================
+  # 3. BACKEND - Criar TERCEIRO
+  # =============================================
+  # EasyPanel: + Service > App
+  # Service Name: backend
+  # Image: usegoapi/gopro-backend:latest
+  # Port: 3000
+  # Domain: api.seudominio.com
+  # =============================================
+  backend:
+    image: usegoapi/gopro-backend:latest
+    environment:
+      - DB_HOST=goapi_postgres
+      - DB_PORT=5432
+      - DATABASE_URL=postgresql://goapi:goapi123@goapi_postgres:5432/goapi
+      - REDIS_HOST=goapi_redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://goapi_redis:6379
+      - JWT_SECRET=sua-chave-jwt-super-secreta-mude-isso-123456
+      - JWT_EXPIRES_IN=7d
+      - ADMIN_EMAIL=admin@seudominio.com
+      - ADMIN_PASSWORD=SuaSenhaForte123!
+      - NODE_ENV=production
+      - CORS_ORIGIN=*
+    volumes:
+      - backend_sessions:/app/sessions
+    # Port: 3000
+    # Domain: api.seudominio.com (HTTPS automático)
+
+  # =============================================
+  # 4. FRONTEND - Criar POR ÚLTIMO
+  # =============================================
+  # EasyPanel: + Service > App
+  # Service Name: frontend
+  # Image: usegoapi/gopro-frontend:latest
+  # Port: 3000
+  # Domain: seudominio.com
+  # =============================================
+  frontend:
+    image: usegoapi/gopro-frontend:latest
+    environment:
+      - NEXT_PUBLIC_API_URL=https://api.seudominio.com
+      - NODE_ENV=production
+    # Port: 3000
+    # Domain: seudominio.com (HTTPS automático)
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_sessions:
