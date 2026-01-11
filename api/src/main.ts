@@ -8,8 +8,16 @@ import * as bcrypt from 'bcryptjs';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // CORS é tratado pelo Nginx no Dockerfile (porta 3001)
-  // NÃO adicionar CORS aqui para evitar headers duplicados
+  // CORS - Habilitar para todas as origens
+  app.enableCors({
+    origin: true, // Permite qualquer origem
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Authorization,Accept,Origin,X-Requested-With,x-api-key,X-Api-Key,X-API-KEY,apikey',
+    exposedHeaders: 'Content-Length,Content-Range,Authorization',
+    credentials: false, // Não usar credentials com origin: *
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  });
   
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 

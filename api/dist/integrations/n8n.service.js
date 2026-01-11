@@ -76,6 +76,19 @@ let N8nService = N8nService_1 = class N8nService {
         try {
             if (remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast')
                 return;
+            const ignoredAutoMessages = [
+                'Workflow was started',
+                'Workflow executed successfully',
+                'Workflow executed',
+                'workflow was started',
+                'workflow executed successfully',
+                'workflow executed',
+            ];
+            const messageLower = message.toLowerCase().trim();
+            if (ignoredAutoMessages.some(ignored => messageLower === ignored.toLowerCase() || message.includes(ignored))) {
+                this.logger.debug(`n8n: Ignorando mensagem automática: "${message}" (fromMe: ${fromMe})`);
+                return;
+            }
             const settings = this.baileys.getSettings(instanceId);
             const config = settings.n8n;
             if (!config) {
@@ -179,20 +192,46 @@ let N8nService = N8nService_1 = class N8nService {
                 session.lastActivity = new Date();
                 this.sessions.set(sessionKey, session);
             }
+            const ignoredResponses = [
+                'Workflow was started',
+                'Workflow executed successfully',
+                'success',
+                'ok',
+                'OK',
+                'Success',
+            ];
             if (response.data) {
                 this.logger.debug(`n8n: Dados da resposta: ${JSON.stringify(response.data)}`);
+                const isIgnoredResponse = (msg) => {
+                    if (!msg || typeof msg !== 'string')
+                        return true;
+                    const trimmed = msg.trim();
+                    return ignoredResponses.includes(trimmed) || trimmed === '';
+                };
                 if (typeof response.data === 'string' && response.data.trim()) {
-                    await this.sendMessage(instanceId, remoteJid, response.data, config.delayMessage);
+                    if (!isIgnoredResponse(response.data)) {
+                        await this.sendMessage(instanceId, remoteJid, response.data, config.delayMessage);
+                    }
+                    else {
+                        this.logger.debug(`n8n: Ignorando resposta automática: "${response.data}"`);
+                    }
                 }
                 else if (response.data.message) {
-                    await this.sendMessage(instanceId, remoteJid, response.data.message, config.delayMessage);
+                    if (!isIgnoredResponse(response.data.message)) {
+                        await this.sendMessage(instanceId, remoteJid, response.data.message, config.delayMessage);
+                    }
+                    else {
+                        this.logger.debug(`n8n: Ignorando resposta automática: "${response.data.message}"`);
+                    }
                 }
                 else if (response.data.messages && Array.isArray(response.data.messages)) {
                     for (const msg of response.data.messages) {
-                        if (config.delayMessage > 0) {
-                            await new Promise(resolve => setTimeout(resolve, config.delayMessage));
+                        if (!isIgnoredResponse(msg)) {
+                            if (config.delayMessage > 0) {
+                                await new Promise(resolve => setTimeout(resolve, config.delayMessage));
+                            }
+                            await this.sendMessage(instanceId, remoteJid, msg);
                         }
-                        await this.sendMessage(instanceId, remoteJid, msg);
                     }
                 }
             }

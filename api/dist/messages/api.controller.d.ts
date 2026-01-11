@@ -210,6 +210,11 @@ export declare class ApiController {
         code: any;
         link: string;
     }>;
+    revokeGroupInviteByParam(groupId: string, req: any): Promise<{
+        success: boolean;
+        code: any;
+        link: string;
+    }>;
     revokeGroupInvite(body: {
         groupId: string;
     }, req: any): Promise<{
@@ -276,7 +281,9 @@ export declare class ApiController {
     }, req: any): Promise<{
         success: boolean;
         newsletter: any;
+        id: any;
         message: string;
+        nota: string;
     }>;
     followNewsletter(body: {
         newsletterId: string;
@@ -344,6 +351,14 @@ export declare class ApiController {
         groupId: any;
         participants: any;
     }>;
+    getContacts(req: any): Promise<{
+        success: boolean;
+        contacts: {
+            id: string;
+            phone: string;
+            name: string;
+        }[];
+    }>;
     getAllContacts(req: any): Promise<{
         success: boolean;
         contacts: {
@@ -354,17 +369,13 @@ export declare class ApiController {
     }>;
     getFollowedNewsletters(req: any): Promise<{
         success: boolean;
-        newsletters: {
-            id: any;
-            name: any;
-            description: any;
-            subscribers: number;
-            picture: any;
-            isOwner: boolean;
-            role: string;
-        }[];
+        newsletters: any[];
         total: number;
         owned: number;
+        info: {
+            message: string;
+            dica: string;
+        };
     }>;
     getChannelSubscribers(newsletterId: string, req: any): Promise<{
         success: boolean;

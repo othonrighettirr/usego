@@ -93,6 +93,9 @@ let ApiController = class ApiController {
     getGroupInvite(groupId, req) {
         return this.messagesService.getGroupInviteCode(req.instanceId, groupId);
     }
+    revokeGroupInviteByParam(groupId, req) {
+        return this.messagesService.revokeGroupInvite(req.instanceId, groupId);
+    }
     revokeGroupInvite(body, req) {
         return this.messagesService.revokeGroupInvite(req.instanceId, body.groupId);
     }
@@ -137,6 +140,9 @@ let ApiController = class ApiController {
     }
     getGroupParticipants(groupId, req) {
         return this.messagesService.getGroupParticipants(req.instanceId, groupId);
+    }
+    getContacts(req) {
+        return this.messagesService.getAllContacts(req.instanceId);
     }
     getAllContacts(req) {
         return this.messagesService.getAllContacts(req.instanceId);
@@ -342,6 +348,15 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ApiController.prototype, "getGroupInvite", null);
 __decorate([
+    (0, common_1.Post)('group/:groupId/revoke'),
+    (0, swagger_1.ApiOperation)({ summary: 'Revogar link de convite do grupo' }),
+    __param(0, (0, common_1.Param)('groupId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "revokeGroupInviteByParam", null);
+__decorate([
     (0, common_1.Post)('group/revoke-invite'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -473,6 +488,14 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ApiController.prototype, "getGroupParticipants", null);
+__decorate([
+    (0, common_1.Get)('contacts'),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar todos os contatos da instância' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ApiController.prototype, "getContacts", null);
 __decorate([
     (0, common_1.Get)('contacts/all'),
     (0, swagger_1.ApiOperation)({ summary: 'Listar todos os contatos da instância' }),

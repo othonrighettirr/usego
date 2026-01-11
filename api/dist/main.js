@@ -41,6 +41,15 @@ const prisma_service_1 = require("./shared/prisma.service");
 const bcrypt = __importStar(require("bcryptjs"));
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    app.enableCors({
+        origin: true,
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        allowedHeaders: 'Content-Type,Authorization,Accept,Origin,X-Requested-With,x-api-key,X-Api-Key,X-API-KEY,apikey',
+        exposedHeaders: 'Content-Length,Content-Range,Authorization',
+        credentials: false,
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
+    });
     app.useGlobalPipes(new common_1.ValidationPipe({ transform: true, whitelist: true }));
     const config = new swagger_1.DocumentBuilder()
         .setTitle('GO-API')

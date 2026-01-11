@@ -226,7 +226,9 @@ export declare class MessagesService {
     createNewsletter(instanceId: string, name: string, description?: string): Promise<{
         success: boolean;
         newsletter: any;
+        id: any;
         message: string;
+        nota: string;
     }>;
     followNewsletter(instanceId: string, newsletterId: string): Promise<{
         success: boolean;
@@ -299,19 +301,16 @@ export declare class MessagesService {
             name: string;
         }[];
     }>;
+    private extractNewsletterName;
     getFollowedNewsletters(instanceId: string): Promise<{
         success: boolean;
-        newsletters: {
-            id: any;
-            name: any;
-            description: any;
-            subscribers: number;
-            picture: any;
-            isOwner: boolean;
-            role: string;
-        }[];
+        newsletters: any[];
         total: number;
         owned: number;
+        info: {
+            message: string;
+            dica: string;
+        };
     }>;
     getChannelSubscribers(instanceId: string, newsletterId: string): Promise<{
         success: boolean;

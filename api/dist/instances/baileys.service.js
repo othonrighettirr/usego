@@ -218,6 +218,62 @@ let BaileysService = BaileysService_1 = class BaileysService {
             callbacks.delete(callbackId);
         }
     }
+    async triggerSettingsWebhook(instanceId, event, data, webhookConfig) {
+        try {
+            if (!webhookConfig.enabled || !webhookConfig.url)
+                return;
+            const payload = {
+                event,
+                instanceId,
+                data,
+                timestamp: new Date().toISOString(),
+            };
+            this.logger.debug(`Webhook: Enviando evento ${event} para ${webhookConfig.url}`);
+            const response = await fetch(webhookConfig.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                this.logger.warn(`Webhook: Resposta não-OK: ${response.status} ${response.statusText}`);
+            }
+            else {
+                this.logger.debug(`Webhook: Enviado com sucesso - status ${response.status}`);
+            }
+        }
+        catch (err) {
+            this.logger.error(`Webhook: Erro ao enviar para ${webhookConfig.url}: ${err.message}`);
+        }
+    }
+    getMessageType(message) {
+        if (!message)
+            return 'unknown';
+        if (message.conversation || message.extendedTextMessage)
+            return 'text';
+        if (message.imageMessage)
+            return 'image';
+        if (message.videoMessage)
+            return 'video';
+        if (message.audioMessage)
+            return 'audio';
+        if (message.documentMessage)
+            return 'document';
+        if (message.stickerMessage)
+            return 'sticker';
+        if (message.contactMessage || message.contactsArrayMessage)
+            return 'contact';
+        if (message.locationMessage)
+            return 'location';
+        if (message.pollCreationMessage)
+            return 'poll';
+        if (message.reactionMessage)
+            return 'reaction';
+        if (message.listMessage)
+            return 'list';
+        if (message.buttonsMessage || message.templateMessage)
+            return 'buttons';
+        return 'unknown';
+    }
     createProxyAgent(proxy) {
         if (!proxy.enabled || !proxy.host || !proxy.port) {
             return undefined;
@@ -313,8 +369,10 @@ let BaileysService = BaileysService_1 = class BaileysService {
                 const instance = this.sockets.get(instanceId);
                 if (!instance)
                     return;
+                let newsletterCount = 0;
                 for (const chat of chats) {
                     if (chat.id?.endsWith('@newsletter')) {
+                        newsletterCount++;
                         instance.newsletters.set(chat.id, {
                             id: chat.id,
                             name: chat.name || chat.subject || 'Canal',
@@ -323,13 +381,18 @@ let BaileysService = BaileysService_1 = class BaileysService {
                         });
                     }
                 }
+                if (newsletterCount > 0) {
+                    this.logger.log(`[chats.upsert] Capturados ${newsletterCount} canais para instância ${instanceId}`);
+                }
             });
-            socket.ev.on('messaging-history.set', ({ chats }) => {
+            socket.ev.on('messaging-history.set', ({ chats, messages }) => {
                 const instance = this.sockets.get(instanceId);
                 if (!instance)
                     return;
+                let newsletterCount = 0;
                 for (const chat of chats) {
                     if (chat.id?.endsWith('@newsletter')) {
+                        newsletterCount++;
                         instance.newsletters.set(chat.id, {
                             id: chat.id,
                             name: chat.name || chat.subject || 'Canal',
@@ -338,9 +401,22 @@ let BaileysService = BaileysService_1 = class BaileysService {
                         });
                     }
                 }
-                const newsletterCount = instance.newsletters.size;
+                if (messages && Array.isArray(messages)) {
+                    for (const msg of messages) {
+                        const jid = msg.key?.remoteJid;
+                        if (jid?.endsWith('@newsletter') && !instance.newsletters.has(jid)) {
+                            newsletterCount++;
+                            instance.newsletters.set(jid, {
+                                id: jid,
+                                name: 'Canal',
+                                description: '',
+                                picture: null,
+                            });
+                        }
+                    }
+                }
                 if (newsletterCount > 0) {
-                    this.logger.log(`Encontrados ${newsletterCount} canais para instância ${instanceId}`);
+                    this.logger.log(`[messaging-history.set] Encontrados ${newsletterCount} canais para instância ${instanceId} (total: ${instance.newsletters.size})`);
                 }
             });
             socket.ev.on('lid-mapping.update', (mapping) => {
@@ -387,6 +463,21 @@ let BaileysService = BaileysService_1 = class BaileysService {
                         msg.message?.extendedTextMessage?.text ||
                         msg.message?.imageMessage?.caption ||
                         msg.message?.videoMessage?.caption || '';
+                    if (settings.webhook?.enabled && settings.webhook?.url && msg.key.remoteJid) {
+                        const eventType = msg.key.fromMe ? 'messages.sent' : 'messages.upsert';
+                        if (!settings.webhook.events?.length || settings.webhook.events.includes(eventType) || settings.webhook.events.includes('all')) {
+                            this.triggerSettingsWebhook(instanceId, eventType, {
+                                remoteJid: msg.key.remoteJid,
+                                message: messageText,
+                                messageId: msg.key.id,
+                                fromMe: msg.key.fromMe || false,
+                                pushName: msg.pushName || msg.key.remoteJid?.split('@')[0],
+                                timestamp: new Date().toISOString(),
+                                messageType: this.getMessageType(msg.message),
+                                rawMessage: msg.message,
+                            }, settings.webhook);
+                        }
+                    }
                     if (messageText && msg.key.remoteJid && this.messageCallbacks.has(instanceId)) {
                         const callbacks = this.messageCallbacks.get(instanceId);
                         if (callbacks) {
@@ -438,6 +529,17 @@ let BaileysService = BaileysService_1 = class BaileysService {
                     if (instance)
                         instance.status = 'DISCONNECTED';
                     this.statusCallbacks.get(instanceId)?.('DISCONNECTED');
+                    const settings = this.getSettings(instanceId);
+                    if (settings.webhook?.enabled && settings.webhook?.url) {
+                        const events = settings.webhook.events || [];
+                        if (!events.length || events.includes('connection.update') || events.includes('all')) {
+                            this.triggerSettingsWebhook(instanceId, 'connection.update', {
+                                status: 'DISCONNECTED',
+                                reason,
+                                reasonMessage,
+                            }, settings.webhook);
+                        }
+                    }
                     this.logger.warn(`Conexão fechada para ${instanceId}: ${reason} - ${reasonMessage}`);
                     if (this.reconnecting.get(instanceId)) {
                         this.logger.warn(`Instância ${instanceId} já está reconectando, ignorando...`);
@@ -525,6 +627,18 @@ let BaileysService = BaileysService_1 = class BaileysService {
                     }
                     this.statusCallbacks.get(instanceId)?.('CONNECTED');
                     this.logger.log(`Instância ${instanceId} conectada com sucesso!`);
+                    const settings = this.getSettings(instanceId);
+                    if (settings.webhook?.enabled && settings.webhook?.url) {
+                        const events = settings.webhook.events || [];
+                        if (!events.length || events.includes('connection.update') || events.includes('all')) {
+                            const instance = this.sockets.get(instanceId);
+                            this.triggerSettingsWebhook(instanceId, 'connection.update', {
+                                status: 'CONNECTED',
+                                phone: instance?.phone,
+                                name: instance?.name,
+                            }, settings.webhook);
+                        }
+                    }
                 }
             });
             return new Promise((resolve) => {

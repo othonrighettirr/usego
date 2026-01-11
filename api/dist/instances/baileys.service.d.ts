@@ -159,6 +159,8 @@ export declare class BaileysService {
     onStatus(instanceId: string, callback: (status: string) => void): void;
     onMessage(instanceId: string, callback: (remoteJid: string, message: string, fromMe: boolean) => void, callbackId?: string): string;
     offMessage(instanceId: string, callbackId: string): void;
+    private triggerSettingsWebhook;
+    private getMessageType;
     private createProxyAgent;
     connect(instanceId: string): Promise<string | null>;
     disconnect(instanceId: string): Promise<void>;
