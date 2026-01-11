@@ -1,0 +1,119 @@
+version: '3.8'
+
+# GO-API - Stack Portainer com Traefik + SSL
+# PostgreSQL e Redis independentes
+# Cole este conteúdo no Portainer > Stacks > Add Stack
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: goapi-traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - goapi_letsencrypt:/letsencrypt
+    networks:
+      - goapi-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: goapi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: goapi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goapi123}
+      POSTGRES_DB: goapi
+    volumes:
+      - goapi_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goapi -d goapi"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - goapi-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: goapi-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - goapi_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - goapi-net
+
+  backend:
+    image: usegoapi/gopro-backend:latest
+    container_name: goapi-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://goapi:${POSTGRES_PASSWORD:-goapi123}@postgres:5432/goapi
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 7d
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@goapi.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      NODE_ENV: production
+    volumes:
+      - goapi_sessions:/app/sessions
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+    networks:
+      - goapi-net
+
+  frontend:
+    image: usegoapi/gopro-frontend:latest
+    container_name: goapi-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    networks:
+      - goapi-net
+
+volumes:
+  goapi_postgres:
+  goapi_redis:
+  goapi_sessions:
+  goapi_letsencrypt:
+
+networks:
+  goapi-net:
+    driver: bridge

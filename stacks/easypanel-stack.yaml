@@ -1,0 +1,66 @@
+version: '3.8'
+
+# GO-API - Stack EasyPanel
+# PostgreSQL e Redis independentes
+# SSL automático pelo EasyPanel
+# Hostnames: goapi_postgres, goapi_redis, goapi_backend, goapi_frontend
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: goapi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goapi123}
+      POSTGRES_DB: goapi
+    volumes:
+      - goapi_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goapi -d goapi"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - goapi_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    image: usegoapi/gopro-backend:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://goapi:${POSTGRES_PASSWORD:-goapi123}@goapi_postgres:5432/goapi
+      REDIS_URL: redis://goapi_redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 7d
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@goapi.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      NODE_ENV: production
+    volumes:
+      - goapi_sessions:/app/sessions
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: usegoapi/gopro-frontend:latest
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+    depends_on:
+      - backend
+
+volumes:
+  goapi_postgres:
+  goapi_redis:
+  goapi_sessions:
