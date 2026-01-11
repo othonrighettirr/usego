@@ -1,0 +1,87 @@
+# =============================================
+# GO-API - Stack para EasyPanel
+# PostgreSQL Independente + Backend + Frontend
+# =============================================
+# 
+# INSTRUÇÕES DE INSTALAÇÃO NO EASYPANEL:
+# 
+# 1. Acesse seu EasyPanel
+# 2. Clique em "Create Project" 
+# 3. Dê um nome ao projeto (ex: goapi)
+# 4. Clique em "Add Service" > "App" para cada serviço
+# 
+# ORDEM DE CRIAÇÃO:
+# 1º - PostgreSQL (banco precisa estar pronto primeiro)
+# 2º - Backend (depende do banco)
+# 3º - Frontend (depende do backend)
+#
+# =============================================
+
+services:
+  # =============================================
+  # 1. POSTGRESQL - Criar primeiro!
+  # =============================================
+  # No EasyPanel:
+  # - Add Service > Database > PostgreSQL
+  # - Ou Add Service > App (usando imagem abaixo)
+  # =============================================
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=goapi
+      - POSTGRES_PASSWORD=goapi123
+      - POSTGRES_DB=goapi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # EasyPanel: Não expor porta externamente (apenas interno)
+    # Internal hostname: postgres
+
+  # =============================================
+  # 2. BACKEND API - Criar segundo!
+  # =============================================
+  # No EasyPanel:
+  # - Add Service > App
+  # - Image: usegoapi/gopro-backend:latest
+  # - Port: 3000
+  # - Domain: api.seudominio.com
+  # =============================================
+  backend:
+    image: usegoapi/gopro-backend:latest
+    environment:
+      # Conexão com PostgreSQL (usar hostname interno do EasyPanel)
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DATABASE_URL=postgresql://goapi:goapi123@postgres:5432/goapi
+      # JWT - MUDE ISSO!
+      - JWT_SECRET=sua-chave-jwt-super-secreta-mude-isso
+      - JWT_EXPIRES_IN=7d
+      # Admin inicial
+      - ADMIN_EMAIL=admin@seudominio.com
+      - ADMIN_PASSWORD=admin123
+    volumes:
+      - backend_sessions:/app/sessions
+    # EasyPanel: 
+    # - Port: 3000
+    # - Domain: api.seudominio.com (com SSL automático)
+
+  # =============================================
+  # 3. FRONTEND - Criar por último!
+  # =============================================
+  # No EasyPanel:
+  # - Add Service > App
+  # - Image: usegoapi/gopro-frontend:latest
+  # - Port: 3000
+  # - Domain: seudominio.com ou app.seudominio.com
+  # =============================================
+  frontend:
+    image: usegoapi/gopro-frontend:latest
+    environment:
+      # URL da API (usar o domínio configurado no backend)
+      - NEXT_PUBLIC_API_URL=https://api.seudominio.com
+    # EasyPanel:
+    # - Port: 3000
+    # - Domain: seudominio.com (com SSL automático)
+
+volumes:
+  postgres_data:
+  backend_sessions:

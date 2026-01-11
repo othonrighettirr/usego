@@ -1,0 +1,123 @@
+# =============================================
+# GO-API - Stack para Portainer
+# PostgreSQL + Redis + Backend + Frontend
+# Todos os serviços independentes
+# =============================================
+# 
+# COMO USAR NO PORTAINER:
+# 1. Acesse Portainer > Stacks > Add Stack
+# 2. Cole este conteúdo ou faça upload do arquivo
+# 3. Configure as variáveis de ambiente
+# 4. Clique em Deploy
+#
+# =============================================
+
+version: '3.8'
+
+services:
+  # =============================================
+  # POSTGRESQL - Banco de Dados
+  # =============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: goapi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-goapi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goapi123}
+      POSTGRES_DB: ${POSTGRES_DB:-goapi}
+    volumes:
+      - goapi_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-goapi} -d ${POSTGRES_DB:-goapi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - goapi-network
+
+  # =============================================
+  # REDIS - Cache e Filas
+  # =============================================
+  redis:
+    image: redis:7-alpine
+    container_name: goapi-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - goapi_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - goapi-network
+
+  # =============================================
+  # BACKEND API
+  # =============================================
+  backend:
+    image: usegoapi/gopro-backend:latest
+    container_name: goapi-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # PostgreSQL
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DATABASE_URL: postgresql://${POSTGRES_USER:-goapi}:${POSTGRES_PASSWORD:-goapi123}@postgres:5432/${POSTGRES_DB:-goapi}
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-sua-chave-secreta-aqui-mude-isso}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      # Admin
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@goapi.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    volumes:
+      - goapi_sessions:/app/sessions
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - goapi-network
+
+  # =============================================
+  # FRONTEND
+  # =============================================
+  frontend:
+    image: usegoapi/gopro-frontend:latest
+    container_name: goapi-frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - goapi-network
+
+volumes:
+  goapi_postgres_data:
+  goapi_redis_data:
+  goapi_sessions:
+
+networks:
+  goapi-network:
+    driver: bridge
