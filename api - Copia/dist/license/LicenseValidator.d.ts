@@ -1,0 +1,50 @@
+export interface LicenseStatus {
+    valid: boolean;
+    blocked: boolean;
+    reason: string | null;
+    machineId: string;
+    ip: string;
+    expiresAt: string | null;
+}
+export declare class LicenseValidator {
+    private serverUrl;
+    private apiKey;
+    private machineId;
+    private hostname;
+    private ip;
+    private cacheDir;
+    private cacheTimeout;
+    private offlineTolerance;
+    private error;
+    private isBlocked;
+    private blockReason;
+    private checkIntervalId;
+    private onBlockCallback;
+    private lastServerCheck;
+    constructor(serverUrl: string, apiKey: string, cacheDir?: string);
+    private getMachineId;
+    private getPublicIp;
+    private isValidIp;
+    private request;
+    private saveCache;
+    private loadCache;
+    private clearCache;
+    private isCacheValid;
+    private isWithinOfflineTolerance;
+    onBlock(callback: (reason: string) => void): this;
+    private block;
+    isLicenseBlocked(): boolean;
+    getBlockReason(): string | null;
+    getStatus(): LicenseStatus;
+    activate(): Promise<boolean>;
+    validate(forceCheck?: boolean): Promise<boolean>;
+    startRealtimeCheck(intervalSeconds?: number): void;
+    stopRealtimeCheck(): void;
+    validateOrDie(): Promise<void>;
+    getError(): string | null;
+    getMachineIdValue(): string;
+    getIp(): string;
+    setCacheTimeout(seconds: number): this;
+    setOfflineTolerance(seconds: number): this;
+}
+export declare function createLicenseGuard(validator: LicenseValidator): (req: any, res: any, next: any) => Promise<any>;
